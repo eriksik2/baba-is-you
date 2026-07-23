@@ -6,9 +6,17 @@ Groundwork for a **Baba Is You**-inspired puzzle game: grid levels, turn-based c
 
 https://eriksik2.github.io/baba-is-you/
 
-Works on phone and desktop — swipe the board or use the on-screen pad; keyboard still works on desktop.
+Main menu → **Play** opens the pastoral overworld. Walk into glowing portals to enter levels.
+Phone: swipe or use the d-pad (center = Wait); **Undo** bottom-left; ☰ for Restart/Exit.
 
-Pushes to `main` build and deploy the web client via GitHub Actions → Pages.
+## What’s new
+
+- **Rule areas** — board text only forms/applies rules inside painted areas; **global rules** apply everywhere without text
+- **Overworld campaign** with unlockable portals and a harder special route
+- **Level editor** — layers (objects/text/ground/areas), paint/box/bucket, global rules, test & save (localStorage)
+- **Visuals** — OpenGameArt pastoral tiles + autotiling, sheep sprite for Baba, particles, smooth moves
+
+Pushes to `main` deploy via GitHub Actions → Pages.
 
 ## Quick start
 
