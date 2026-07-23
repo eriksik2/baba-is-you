@@ -4,6 +4,7 @@ import type {
   LevelDocument,
   LevelEntitySpec,
 } from "./types";
+import { DEFAULT_CHUNK_SIZE } from "./types";
 
 /** Visual-only background tile keys. */
 export const BG = {
@@ -85,18 +86,20 @@ function txt(id: string, x: number, y: number, layer?: number): LevelEntitySpec 
     : { kind: "text", id, x, y, layer };
 }
 
-/** Create an empty pastoral level shell. */
+/** Create an empty pastoral level shell (dense authoring; chunked on load). */
 export function createBlankLevel(
   id: string,
   name: string,
-  w: number,
-  h: number,
+  w = DEFAULT_CHUNK_SIZE,
+  h = 12,
 ): LevelDocument {
   return {
     id,
     name,
     width: w,
     height: h,
+    chunkSize: DEFAULT_CHUNK_SIZE,
+    chunks: [],
     globalRules: [],
     areas: [],
     areaMap: emptyAreaMap(w, h),

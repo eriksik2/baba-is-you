@@ -1,56 +1,68 @@
+/**
+ * Chunk-based level documents: levels have no fixed width/height.
+ * Space is composed of CHUNK_SIZE×CHUNK_SIZE tiles assembled at load time.
+ */
+
 export type Vec2 = { x: number; y: number };
 
 export interface GlobalRuleSpec {
-  subject: string; // noun id
-  verb: string; // usually "is"
-  object: string; // property or noun id
+  subject: string;
+  verb: string;
+  object: string;
 }
 
 export interface AreaDef {
-  id: number; // 0 reserved for "no area"
+  id: number;
   name: string;
-  color: string; // rgba for editor overlay
+  color: string;
 }
 
 export interface LevelEntitySpec {
   kind: "object" | "text";
-  /** object noun OR text word id */
   id: string;
+  /** World-space cell coordinates (not chunk-local). */
   x: number;
   y: number;
   layer?: number;
 }
 
+export interface LevelChunk {
+  /** Chunk grid coordinate (chunk 0,0 covers world cells [0, CHUNK_SIZE)). */
+  cx: number;
+  cy: number;
+  /** length chunkSize², row-major local */
+  background: string[];
+  /** length chunkSize² */
+  areaMap: number[];
+}
+
+export interface LevelPortal {
+  id: string;
+  x: number;
+  y: number;
+  targetLevelId: string;
+  requires?: string;
+  label?: string;
+  special?: boolean;
+}
+
 export interface LevelDocument {
   id: string;
   name: string;
-  width: number;
-  height: number;
-  /** Applied everywhere without existing as text on the board */
+  /** Preferred storage. If omitted, width/height dense fields are migrated. */
+  chunkSize?: number;
+  chunks?: LevelChunk[];
   globalRules: GlobalRuleSpec[];
   areas: AreaDef[];
-  /** length width*height, area id per cell (0 = none) */
-  areaMap: number[];
-  /** visual-only background tile keys, length width*height */
-  background: string[];
   entities: LevelEntitySpec[];
-  /** If true, clearing/winning is not the goal; entering portals is */
   isOverworld?: boolean;
-  /** Door/portal markers linking to other levels */
-  portals?: Array<{
-    id: string;
-    x: number;
-    y: number;
-    targetLevelId: string;
-    /** require this level completed to enter, optional */
-    requires?: string;
-    /** label shown near portal */
-    label?: string;
-    /** if true, requires solving a harder local puzzle (special) */
-    special?: boolean;
-  }>;
-  /** Starting YOU position hint for overworld resume */
+  portals?: LevelPortal[];
   spawn?: Vec2;
+  /** @deprecated Dense authoring helpers — converted to chunks on load. */
+  width?: number;
+  height?: number;
+  background?: string[];
+  areaMap?: number[];
 }
 
 export interface CampaignProgress {
@@ -58,3 +70,5 @@ export interface CampaignProgress {
   unlockedLevels: string[];
   overworldPos?: Vec2;
 }
+
+export const DEFAULT_CHUNK_SIZE = 16;

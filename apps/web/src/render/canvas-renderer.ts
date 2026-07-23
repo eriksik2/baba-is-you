@@ -34,46 +34,49 @@ export type PortalProgress = {
   completed?: boolean;
 };
 
+/** View camera: world cell at center + CSS px per cell. */
+export type Camera = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 export type DrawOptions = {
-  /** Seconds (or any monotonic time unit) for water / walk anim. */
   t?: number;
-  /** Smooth movement keyed by entity id. */
   lerp?: Map<number, LerpState>;
-  /** Pixel-space camera scroll offset. */
-  camera?: { x: number; y: number };
+  camera?: Camera;
   showAreas?: boolean;
   areaDefs?: AreaDef[];
   portals?: NonNullable<LevelDocument["portals"]>;
-  /** Per-portal unlock / clear styling keyed by portal id. */
   progressPortals?: Record<string, PortalProgress>;
 };
 
 export interface RenderOptions {
-  cellSize?: number;
-  padding?: number;
   assets?: AssetAtlas;
 }
 
-/**
- * Canvas renderer — paints background autotiles, portals, entities, particles.
- * All game logic lives in @baba/engine.
- */
 export class CanvasRenderer {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly assets: AssetAtlas;
-  private _cellSize: number;
-  private _padding: number;
+  private _viewW = 320;
+  private _viewH = 320;
   private dpr = 1;
   private readonly facing = new Map<number, SheepDir>();
 
   readonly particles = new ParticleSystem();
 
-  get cellSize(): number {
-    return this._cellSize;
+  get viewW(): number {
+    return this._viewW;
   }
-
+  get viewH(): number {
+    return this._viewH;
+  }
+  /** @deprecated use camera.zoom — kept for editor hit-testing helpers */
+  get cellSize(): number {
+    return 32;
+  }
   get padding(): number {
-    return this._padding;
+    return 0;
   }
 
   constructor(
@@ -83,83 +86,107 @@ export class CanvasRenderer {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2D canvas unavailable");
     this.ctx = ctx;
-    this._cellSize = options.cellSize ?? 48;
-    this._padding = options.padding ?? 16;
     this.assets = options.assets ?? atlas;
   }
 
-  /**
-   * Size the board to fit inside the given CSS pixel box (and device DPR).
-   * Returns the chosen cell size for diagnostics / swipe thresholds.
-   */
-  fit(world: World, maxCssWidth: number, maxCssHeight: number): number {
-    const cols = world.width;
-    const rows = world.height;
-    const pad = Math.max(8, Math.min(20, Math.floor(Math.min(maxCssWidth, maxCssHeight) * 0.03)));
-
-    const cellW = (maxCssWidth - pad * 2) / cols;
-    const cellH = (maxCssHeight - pad * 2) / rows;
-    const cell = Math.max(18, Math.floor(Math.min(cellW, cellH, 64)));
-
-    this._cellSize = cell;
-    this._padding = pad;
+  /** Size the canvas to fill the shell (viewport), not the whole world. */
+  resizeViewport(cssWidth: number, cssHeight: number): void {
+    const w = Math.max(64, Math.floor(cssWidth));
+    const h = Math.max(64, Math.floor(cssHeight));
+    this._viewW = w;
+    this._viewH = h;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-
-    const cssW = cols * cell + pad * 2;
-    const cssH = rows * cell + pad * 2;
-
-    this.canvas.style.width = `${cssW}px`;
-    this.canvas.style.height = `${cssH}px`;
-    this.canvas.width = Math.round(cssW * this.dpr);
-    this.canvas.height = Math.round(cssH * this.dpr);
+    this.canvas.style.width = `${w}px`;
+    this.canvas.style.height = `${h}px`;
+    this.canvas.width = Math.round(w * this.dpr);
+    this.canvas.height = Math.round(h * this.dpr);
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+  }
 
-    return cell;
+  /** Fit entire world in view; returns camera. */
+  cameraFitWorld(world: World, margin = 0.92): Camera {
+    const zoom = Math.max(
+      12,
+      Math.min(
+        64,
+        Math.min(this._viewW / Math.max(1, world.width), this._viewH / Math.max(1, world.height)) *
+          margin,
+      ),
+    );
+    return {
+      x: (world.width - 1) / 2,
+      y: (world.height - 1) / 2,
+      zoom,
+    };
+  }
+
+  worldToScreen(wx: number, wy: number, cam: Camera): { sx: number; sy: number } {
+    return {
+      sx: this._viewW / 2 + (wx - cam.x) * cam.zoom,
+      sy: this._viewH / 2 + (wy - cam.y) * cam.zoom,
+    };
+  }
+
+  screenToWorld(sx: number, sy: number, cam: Camera): { x: number; y: number } {
+    return {
+      x: cam.x + (sx - this._viewW / 2) / cam.zoom,
+      y: cam.y + (sy - this._viewH / 2) / cam.zoom,
+    };
+  }
+
+  /** @deprecated Prefer resizeViewport + cameraFitWorld */
+  fit(world: World, maxCssWidth: number, maxCssHeight: number): number {
+    this.resizeViewport(maxCssWidth, maxCssHeight);
+    return this.cameraFitWorld(world).zoom;
   }
 
   draw(world: World, opts: DrawOptions = {}): void {
-    const { ctx, cellSize: cs, padding: pad } = this;
-    const cam = opts.camera ?? { x: 0, y: 0 };
+    const ctx = this.ctx;
+    const cam = opts.camera ?? this.cameraFitWorld(world);
     const t = opts.t ?? 0;
-    const cssW = world.width * cs + pad * 2;
-    const cssH = world.height * cs + pad * 2;
+    const cs = cam.zoom;
 
-    ctx.clearRect(0, 0, cssW, cssH);
+    ctx.clearRect(0, 0, this._viewW, this._viewH);
+    ctx.fillStyle = "#152018";
+    ctx.fillRect(0, 0, this._viewW, this._viewH);
 
-    ctx.fillStyle = "#1a2218";
-    ctx.fillRect(0, 0, cssW, cssH);
+    const halfCellsX = this._viewW / cs / 2 + 2;
+    const halfCellsY = this._viewH / cs / 2 + 2;
+    const x0 = Math.max(0, Math.floor(cam.x - halfCellsX));
+    const y0 = Math.max(0, Math.floor(cam.y - halfCellsY));
+    const x1 = Math.min(world.width - 1, Math.ceil(cam.x + halfCellsX));
+    const y1 = Math.min(world.height - 1, Math.ceil(cam.y + halfCellsY));
 
-    // Board frame
-    ctx.fillStyle = "#243028";
-    ctx.fillRect(pad - 3 - cam.x, pad - 3 - cam.y, world.width * cs + 6, world.height * cs + 6);
-
-    // Clip to board interior (plus padding) so oversized overworlds don't smear chrome.
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(pad - 2, pad - 2, world.width * cs + 4, world.height * cs + 4);
-    ctx.clip();
-
-    for (let y = 0; y < world.height; y++) {
-      for (let x = 0; x < world.width; x++) {
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
         const tile = world.bgAt({ x, y });
         const mask = neighborMask(world, x, y, tile);
-        const dx = pad + x * cs - cam.x;
-        const dy = pad + y * cs - cam.y;
-        drawAutotile(ctx, this.assets, tile, mask, dx, dy, cs, t);
+        const { sx, sy } = this.worldToScreen(x, y, cam);
+        drawAutotile(ctx, this.assets, tile, mask, sx, sy, cs, t);
       }
     }
 
     const areaDefs = opts.areaDefs ?? world.areaDefs;
     if (opts.showAreas && areaDefs.length > 0) {
-      this.drawAreaOverlays(world, areaDefs, pad, cs, cam);
+      const byId = new Map(areaDefs.map((a) => [a.id, a]));
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const id = world.areaAt({ x, y });
+          if (!id) continue;
+          const def = byId.get(id);
+          if (!def) continue;
+          const { sx, sy } = this.worldToScreen(x, y, cam);
+          ctx.fillStyle = def.color;
+          ctx.fillRect(sx, sy, cs, cs);
+        }
+      }
     }
 
     const portals = opts.portals ?? world.portals;
-    if (portals.length > 0) {
-      this.drawPortals(portals, opts.progressPortals, pad, cs, cam, t);
+    if (portals.length) {
+      this.drawPortals(portals, opts.progressPortals, cam, t);
     }
 
-    // Wall occupancy for neighbor-aware wall edges.
     const wallCells = new Set<string>();
     for (const e of world.entities.values()) {
       if (e.alive && e.kind === "object" && e.noun === "wall") {
@@ -173,58 +200,40 @@ export class CanvasRenderer {
       return a.layer - b.layer;
     });
 
+    const nowMs = typeof performance !== "undefined" ? performance.now() : t * 1000;
     for (const e of entities) {
       if (!e.alive) continue;
-      this.drawEntity(world, e, pad, cs, cam, t, opts.lerp, wallCells);
+      const pos = this.resolvePos(e, opts.lerp, nowMs);
+      if (pos.x < x0 - 1 || pos.x > x1 + 1 || pos.y < y0 - 1 || pos.y > y1 + 1) continue;
+      const { sx, sy } = this.worldToScreen(pos.x, pos.y, cam);
+      this.drawEntity(world, e, sx, sy, cs, t, pos.moving, wallCells, Math.round(pos.x), Math.round(pos.y));
     }
 
-    this.particles.draw(ctx, cs, pad, cam);
-    ctx.restore();
-  }
-
-  private drawAreaOverlays(
-    world: World,
-    areaDefs: AreaDef[],
-    pad: number,
-    cs: number,
-    cam: { x: number; y: number },
-  ): void {
-    const ctx = this.ctx;
-    const byId = new Map(areaDefs.map((a) => [a.id, a]));
-    for (let y = 0; y < world.height; y++) {
-      for (let x = 0; x < world.width; x++) {
-        const id = world.areaAt({ x, y });
-        if (id === 0) continue;
-        const def = byId.get(id);
-        if (!def) continue;
-        ctx.fillStyle = def.color;
-        ctx.globalAlpha = 0.28;
-        ctx.fillRect(pad + x * cs - cam.x, pad + y * cs - cam.y, cs, cs);
-        ctx.globalAlpha = 1;
-      }
-    }
+    // Particles: convert world-ish coords — ParticleSystem uses pixel space with pad/cam.
+    // Emit sites pass approximate pixels; draw with identity cam offset 0 and pad 0, cell=zoom.
+    this.particles.draw(ctx, cs, 0, {
+      x: cam.x * cs - this._viewW / 2,
+      y: cam.y * cs - this._viewH / 2,
+    });
   }
 
   private drawPortals(
     portals: NonNullable<LevelDocument["portals"]>,
     progress: Record<string, PortalProgress> | undefined,
-    pad: number,
-    cs: number,
-    cam: { x: number; y: number },
+    cam: Camera,
     t: number,
   ): void {
     const ctx = this.ctx;
+    const cs = cam.zoom;
     for (const p of portals) {
       const prog = progress?.[p.id];
       const unlocked = prog?.unlocked ?? true;
       const completed = prog?.completed ?? false;
-      const cx = pad + (p.x + 0.5) * cs - cam.x;
-      const cy = pad + (p.y + 0.5) * cs - cam.y;
+      const { sx, sy } = this.worldToScreen(p.x + 0.5, p.y + 0.5, cam);
       const r = cs * (0.32 + Math.sin(t * 3 + p.x) * 0.03);
 
       ctx.save();
-      // Outer glow
-      const glow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 1.6);
+      const glow = ctx.createRadialGradient(sx, sy, r * 0.2, sx, sy, r * 1.6);
       if (completed) {
         glow.addColorStop(0, "rgba(240, 199, 94, 0.75)");
         glow.addColorStop(1, "rgba(240, 199, 94, 0)");
@@ -237,18 +246,17 @@ export class CanvasRenderer {
       }
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
+      ctx.arc(sx, sy, r * 1.6, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.strokeStyle = completed ? "#f0c75e" : unlocked ? "#6ec6ff" : "#888";
       ctx.lineWidth = Math.max(1.5, cs * 0.05);
       ctx.globalAlpha = unlocked ? 0.95 : 0.45;
       ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
       ctx.stroke();
-
       ctx.beginPath();
-      ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2);
+      ctx.arc(sx, sy, r * 0.55, 0, Math.PI * 2);
       ctx.stroke();
 
       const label = p.label ?? p.targetLevelId;
@@ -257,7 +265,7 @@ export class CanvasRenderer {
       ctx.font = `600 ${Math.max(8, Math.floor(cs * 0.22))}px "IBM Plex Sans", system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillText(label, cx, cy + r + 2);
+      ctx.fillText(label, sx, sy + r + 2);
       ctx.restore();
     }
   }
@@ -265,18 +273,16 @@ export class CanvasRenderer {
   private resolvePos(
     e: EntityRecord,
     lerp: Map<number, LerpState> | undefined,
-    t: number,
+    nowMs: number,
   ): { x: number; y: number; moving: boolean } {
     const anim = lerp?.get(e.id as unknown as number);
     if (!anim || anim.duration <= 0) {
       return { x: e.position.x, y: e.position.y, moving: false };
     }
-    const u = Math.max(0, Math.min(1, (t - anim.start) / anim.duration));
-    // Ease out slightly for snappier landings.
+    const u = Math.max(0, Math.min(1, (nowMs - anim.start) / anim.duration));
     const eased = 1 - (1 - u) * (1 - u);
     const x = anim.fromX + (anim.toX - anim.fromX) * eased;
     const y = anim.fromY + (anim.toY - anim.fromY) * eased;
-
     const dx = anim.toX - anim.fromX;
     const dy = anim.toY - anim.fromY;
     if (dx !== 0 || dy !== 0) {
@@ -285,7 +291,6 @@ export class CanvasRenderer {
       else dir = dy > 0 ? "down" : "up";
       this.facing.set(e.id as unknown as number, dir);
     }
-
     return { x, y, moving: u < 1 };
   }
 
@@ -301,17 +306,16 @@ export class CanvasRenderer {
   private drawEntity(
     world: World,
     e: EntityRecord,
-    pad: number,
+    x: number,
+    y: number,
     cs: number,
-    cam: { x: number; y: number },
     t: number,
-    lerp: Map<number, LerpState> | undefined,
+    moving: boolean,
     wallCells: Set<string>,
+    cellX: number,
+    cellY: number,
   ): void {
     const ctx = this.ctx;
-    const pos = this.resolvePos(e, lerp, t);
-    const x = pad + pos.x * cs - cam.x;
-    const y = pad + pos.y * cs - cam.y;
     const inset = Math.max(2, cs * 0.08);
     const eye = Math.max(1.5, cs * 0.05);
 
@@ -326,25 +330,20 @@ export class CanvasRenderer {
       ctx.font = `600 ${Math.max(9, Math.floor(cs * 0.26))}px "IBM Plex Sans", system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const label = word?.label ?? "?";
-      wrapLabel(ctx, label, x + cs / 2, y + cs / 2, cs - inset * 2.5, cs);
+      wrapLabel(ctx, word?.label ?? "?", x + cs / 2, y + cs / 2, cs - inset * 2.5, cs);
       return;
     }
 
-    // Baba → sheep sprite
     if (e.noun === "baba") {
       const dir = this.facing.get(e.id as unknown as number) ?? "down";
-      const frame = pos.moving ? Math.floor(t * 8) : 0;
-      if (this.assets.sheep) {
-        this.assets.drawSheep(ctx, x, y, cs, dir, frame);
-      } else {
-        this.drawFallbackCreature(ctx, x, y, cs, PALETTE.baba ?? "#f4f0ea", eye);
-      }
+      const frame = moving ? Math.floor(t * 8) : 0;
+      if (this.assets.sheep) this.assets.drawSheep(ctx, x, y, cs, dir, frame);
+      else this.drawFallbackCreature(ctx, x, y, cs, PALETTE.baba ?? "#f4f0ea", eye);
       return;
     }
 
     if (e.noun === "wall") {
-      this.drawWall(ctx, x, y, cs, this.wallMask(Math.round(pos.x), Math.round(pos.y), wallCells));
+      this.drawWall(ctx, x, y, cs, this.wallMask(cellX, cellY, wallCells));
       return;
     }
 
@@ -367,10 +366,6 @@ export class CanvasRenderer {
       ctx.beginPath();
       ctx.ellipse(x + cs / 2, y + cs / 2, cs * 0.3, cs * 0.26, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "rgba(0,0,0,0.18)";
-      ctx.beginPath();
-      ctx.ellipse(x + cs / 2 + cs * 0.05, y + cs / 2 + cs * 0.04, cs * 0.18, cs * 0.14, 0.3, 0, Math.PI * 2);
-      ctx.fill();
     } else if (e.noun === "skull") {
       ctx.beginPath();
       ctx.ellipse(x + cs / 2, y + cs / 2 - cs * 0.02, cs * 0.28, cs * 0.3, 0, 0, Math.PI * 2);
@@ -380,13 +375,6 @@ export class CanvasRenderer {
       ctx.arc(x + cs / 2 - cs * 0.1, y + cs / 2 - cs * 0.05, eye * 1.2, 0, Math.PI * 2);
       ctx.arc(x + cs / 2 + cs * 0.1, y + cs / 2 - cs * 0.05, eye * 1.2, 0, Math.PI * 2);
       ctx.fill();
-    } else if (e.noun === "water" || e.noun === "lava") {
-      roundRect(ctx, x + inset, y + inset, cs - inset * 2, cs - inset * 2, Math.max(4, cs * 0.14));
-      ctx.fill();
-      ctx.globalAlpha = 0.25;
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(x + cs * 0.2, y + cs * 0.25, cs * 0.55, cs * 0.12);
-      ctx.globalAlpha = 1;
     } else {
       roundRect(ctx, x + inset + 2, y + inset + 2, cs - inset * 2 - 4, cs - inset * 2 - 4, Math.max(4, cs * 0.16));
       ctx.fill();
@@ -412,7 +400,6 @@ export class CanvasRenderer {
     ctx.fill();
   }
 
-  /** Neighbor-aware wall block with inset edges where neighbors are missing. */
   private drawWall(
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -424,14 +411,8 @@ export class CanvasRenderer {
     ctx.fillStyle = PALETTE.wall ?? "#5a6a7e";
     roundRect(ctx, x + inset, y + inset, cs - inset * 2, cs - inset * 2, 2);
     ctx.fill();
-
-    // Inner panel
     ctx.fillStyle = "rgba(255,255,255,0.08)";
     ctx.fillRect(x + cs * 0.18, y + cs * 0.18, cs * 0.64, cs * 0.64);
-    ctx.strokeStyle = "rgba(0,0,0,0.28)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + cs * 0.18, y + cs * 0.18, cs * 0.64, cs * 0.64);
-
     const t = Math.max(1.5, cs * 0.08);
     if ((mask & MASK_N) === 0) {
       ctx.fillStyle = "rgba(220,230,240,0.22)";

@@ -25,3 +25,12 @@ export type { BgTile, Rect } from "./builtin";
 
 export { loadDocument, rulesFromGlobalSpecs } from "./loader";
 export { createInitialProgress, unlockAfterClear, canEnterPortal } from "./progress";
+export {
+  DEFAULT_CHUNK_SIZE,
+  flattenChunks,
+  migrateDenseToChunks,
+  emptyChunk,
+  setChunkCell,
+  getChunkBg,
+  worldToChunk,
+} from "./chunks";

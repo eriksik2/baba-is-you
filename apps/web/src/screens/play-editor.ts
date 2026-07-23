@@ -1,21 +1,24 @@
 import type {
   GameSession,
   LevelDocument,
+  LevelEntitySpec,
   PlayerIntent,
   World,
 } from "@baba/engine";
 import {
   CAMPAIGN_LEVELS,
+  DEFAULT_CHUNK_SIZE,
   GameSession as Session,
   canEnterPortal,
   createBlankLevel,
   createDefaultLexicon,
   loadDocument,
+  migrateDenseToChunks,
   unlockAfterClear,
 } from "@baba/engine";
-import { CanvasRenderer, type LerpState } from "../render/canvas-renderer";
+import { CanvasRenderer, type Camera, type LerpState } from "../render/canvas-renderer";
 import { atlas } from "../render/atlas";
-import { bindControls } from "../input/controls";
+import { bindControls, type ControlsHandle } from "../input/controls";
 import {
   findLevel,
   loadProgress,
@@ -24,6 +27,11 @@ import {
 } from "../storage/save";
 
 const LERP_MS = 110;
+const FOLLOW = 0.15;
+const ZOOM_MIN = 12;
+const ZOOM_MAX = 96;
+const ZOOM_STEP = 1.2;
+const CHUNK = DEFAULT_CHUNK_SIZE;
 
 export type AppApi = {
   showScreen: (id: "menu" | "play" | "editor-hub" | "editor") => void;
@@ -31,37 +39,87 @@ export type AppApi = {
   openOverworld: () => void;
 };
 
+function clampZoom(z: number): number {
+  return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+}
+
+function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.hypot(dx, dy);
+}
+
+function mid(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): { x: number; y: number } {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+/** Zoom keeping the world point under `sx,sy` (canvas-local CSS px) stable. */
+function zoomAround(
+  renderer: CanvasRenderer,
+  camera: Camera,
+  factor: number,
+  sx: number,
+  sy: number,
+): Camera {
+  const before = renderer.screenToWorld(sx, sy, camera);
+  const zoom = clampZoom(camera.zoom * factor);
+  const next: Camera = { x: camera.x, y: camera.y, zoom };
+  const after = renderer.screenToWorld(sx, sy, next);
+  next.x += before.x - after.x;
+  next.y += before.y - after.y;
+  return next;
+}
+
 export function mountPlay(api: AppApi): {
   open: (doc: LevelDocument, opts?: { fromEditor?: boolean }) => void;
   destroy: () => void;
 } {
   const screen = document.querySelector<HTMLElement>("#screen-play")!;
   const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
-  const boardShell = document.querySelector<HTMLElement>(".board-shell")!;
+  const boardShell = screen.querySelector<HTMLElement>(".board-shell")!;
   const rulesList = document.querySelector<HTMLUListElement>("#rules-list")!;
   const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
   const levelName = document.querySelector<HTMLParagraphElement>("#level-name")!;
   const menuBtn = document.querySelector<HTMLButtonElement>("#btn-menu")!;
   const menuPanel = document.querySelector<HTMLElement>("#hamburger-panel")!;
+  const controlsBtn = document.querySelector<HTMLButtonElement>("#btn-controls")!;
+  const touchDock = document.querySelector<HTMLElement>("#touch-dock")!;
 
   const renderer = new CanvasRenderer(canvas);
   let session: GameSession | null = null;
   let sourceDoc: LevelDocument | null = null;
   let fromEditor = false;
-  let controls: { destroy: () => void } | null = null;
+  let controls: ControlsHandle | null = null;
   let lerp = new Map<number, LerpState>();
   let raf = 0;
   let lastT = performance.now();
-  let camera = { x: 0, y: 0 };
+  let camera: Camera = { x: 0, y: 0, zoom: 32 };
+  let userPan = false;
+  let activelyPanning = false;
 
-  function progressPortals() {
+  const pointers = new Map<number, { x: number; y: number }>();
+  let pinchStartDist = 0;
+  let pinchStartZoom = 32;
+  let panLast: { x: number; y: number } | null = null;
+  let gestureMoved = false;
+  let lastTapAt = 0;
+  let lastTapPos: { x: number; y: number } | null = null;
+
+  function controlsOpen(): boolean {
+    return !touchDock.hidden && !touchDock.classList.contains("is-collapsed");
+  }
+
+  function progressPortals(): Record<string, { unlocked?: boolean; completed?: boolean }> {
     const progress = loadProgress();
     const map: Record<string, { unlocked?: boolean; completed?: boolean }> = {};
     for (const p of session?.world.portals ?? []) {
-      map[p.id] = {
-        unlocked: canEnterPortal(progress, p),
-        completed: progress.completedLevels.includes(p.targetLevelId),
-      };
+      const entry: { unlocked?: boolean; completed?: boolean } = {};
+      entry.unlocked = canEnterPortal(progress, p);
+      entry.completed = progress.completedLevels.includes(p.targetLevelId);
+      map[p.id] = entry;
     }
     return map;
   }
@@ -75,23 +133,31 @@ export function mountPlay(api: AppApi): {
     }
   }
 
+  function fitCamera(): void {
+    if (!session) return;
+    userPan = false;
+    camera = renderer.cameraFitWorld(session.world);
+  }
+
   function layout(): void {
     if (!session) return;
     const rect = boardShell.getBoundingClientRect();
-    renderer.fit(session.world, Math.max(120, rect.width - 4), Math.max(120, rect.height - 4));
+    renderer.resizeViewport(Math.max(120, rect.width), Math.max(120, rect.height));
+    if (!userPan) {
+      camera = renderer.cameraFitWorld(session.world);
+    }
   }
 
-  function followCamera(world: World, cell: number, pad: number): void {
-    const you = world.entitiesWithProperty("you")[0];
-    if (!you) {
-      camera = { x: 0, y: 0 };
-      return;
-    }
-    // Soft follow for large maps: keep YOU near view center if board CSS is clipped.
-    // Current fit shrinks whole map into view, so camera stays 0 unless we zoom later.
-    camera = { x: 0, y: 0 };
-    void cell;
-    void pad;
+  function followYou(): void {
+    // Soft follow unless the player has taken the camera (pan/zoom) or is dragging.
+    if (!session || userPan || activelyPanning) return;
+    const you = session.world.entitiesWithProperty("you")[0];
+    if (!you) return;
+    camera = {
+      ...camera,
+      x: camera.x + (you.position.x - camera.x) * FOLLOW,
+      y: camera.y + (you.position.y - camera.y) * FOLLOW,
+    };
   }
 
   function drawFrame(now: number): void {
@@ -99,9 +165,7 @@ export function mountPlay(api: AppApi): {
     const dt = Math.min(0.05, (now - lastT) / 1000);
     lastT = now;
     renderer.particles.update(dt);
-    const cell = renderer.cellSize;
-    const pad = renderer.padding;
-    followCamera(session.world, cell, pad);
+    followYou();
     renderer.draw(session.world, {
       t: now / 1000,
       lerp,
@@ -121,7 +185,7 @@ export function mountPlay(api: AppApi): {
       const prev = before.entities.get(e.id);
       if (!prev) continue;
       if (prev.position.x === e.position.x && prev.position.y === e.position.y) continue;
-      next.set(e.id, {
+      next.set(e.id as unknown as number, {
         fromX: prev.position.x,
         fromY: prev.position.y,
         toX: e.position.x,
@@ -131,6 +195,11 @@ export function mountPlay(api: AppApi): {
       });
     }
     lerp = next;
+  }
+
+  function emitAtCell(x: number, y: number, kind: "spark" | "win", count: number): void {
+    const z = camera.zoom;
+    renderer.particles.emit((x + 0.5) * z, (y + 0.5) * z, kind, count);
   }
 
   function tryPortals(): void {
@@ -148,12 +217,7 @@ export function mountPlay(api: AppApi): {
         if (!target) return;
         progress.overworldPos = { ...you.position };
         saveProgress(progress);
-        renderer.particles.emit(
-          portal.x * 40 + 20,
-          portal.y * 40 + 20,
-          "spark",
-          18,
-        );
+        emitAtCell(portal.x, portal.y, "spark", 18);
         open(target);
         return;
       }
@@ -163,7 +227,9 @@ export function mountPlay(api: AppApi): {
   function onWin(): void {
     if (!session || !sourceDoc) return;
     statusEl.textContent = "Nice!";
-    renderer.particles.emit(120, 80, "win", 28);
+    const you = session.world.entitiesWithProperty("you")[0];
+    if (you) emitAtCell(you.position.x, you.position.y, "win", 28);
+    else emitAtCell(camera.x, camera.y, "win", 28);
     if (sourceDoc.isOverworld) return;
     let progress = loadProgress();
     progress = unlockAfterClear(progress, sourceDoc.id, CAMPAIGN_LEVELS);
@@ -204,9 +270,28 @@ export function mountPlay(api: AppApi): {
     menuBtn.setAttribute("aria-expanded", openMenu ? "true" : "false");
   }
 
+  function rebindControls(): void {
+    controls?.destroy();
+    const opts: { root: ParentNode; swipeTarget?: HTMLElement } = { root: screen };
+    if (controlsOpen()) opts.swipeTarget = canvas;
+    controls = bindControls((intent) => dispatch(intent), opts);
+  }
+
+  function setControlsOpen(openDock: boolean): void {
+    touchDock.hidden = !openDock;
+    touchDock.classList.toggle("is-collapsed", !openDock);
+    controlsBtn.setAttribute("aria-pressed", openDock ? "true" : "false");
+    controlsBtn.setAttribute("aria-label", openDock ? "Hide controls" : "Show controls");
+    screen.classList.toggle("controls-open", openDock);
+    rebindControls();
+    layout();
+  }
+
   function open(doc: LevelDocument, opts?: { fromEditor?: boolean }): void {
     sourceDoc = structuredClone(doc);
     fromEditor = !!opts?.fromEditor;
+    userPan = false;
+    activelyPanning = false;
     const world = loadDocument(doc);
     const progress = loadProgress();
     if (doc.isOverworld && progress.overworldPos) {
@@ -220,9 +305,119 @@ export function mountPlay(api: AppApi): {
     statusEl.textContent = "";
     setMenuOpen(false);
     refreshRules();
-    layout();
     api.showScreen("play");
+    layout();
+    requestAnimationFrame(() => {
+      layout();
+    });
   }
+
+  // --- Zoom buttons ---
+  screen.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      const dir = btn.dataset.zoom;
+      const factor = dir === "in" ? ZOOM_STEP : 1 / ZOOM_STEP;
+      camera = zoomAround(renderer, camera, factor, renderer.viewW / 2, renderer.viewH / 2);
+      userPan = true;
+    });
+  });
+
+  // --- Canvas pan / pinch / double-tap fit ---
+  canvas.addEventListener("pointerdown", (ev) => {
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    gestureMoved = false;
+
+    if (pointers.size === 2) {
+      const pts = [...pointers.values()];
+      pinchStartDist = Math.max(1, dist(pts[0]!, pts[1]!));
+      pinchStartZoom = camera.zoom;
+      activelyPanning = false;
+      panLast = null;
+      return;
+    }
+
+    // One-finger: pan only when controls collapsed (swipe-move is bound when open)
+    if (!controlsOpen()) {
+      activelyPanning = true;
+      panLast = { x: ev.clientX, y: ev.clientY };
+      try {
+        canvas.setPointerCapture(ev.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  canvas.addEventListener("pointermove", (ev) => {
+    if (!pointers.has(ev.pointerId)) return;
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+
+    if (pointers.size >= 2) {
+      const pts = [...pointers.values()];
+      const a = pts[0]!;
+      const b = pts[1]!;
+      const d = Math.max(1, dist(a, b));
+      const rect = canvas.getBoundingClientRect();
+      const m = mid(a, b);
+      const targetZoom = clampZoom(pinchStartZoom * (d / pinchStartDist));
+      const f = targetZoom / camera.zoom;
+      if (Math.abs(f - 1) > 0.001) {
+        camera = zoomAround(renderer, camera, f, m.x - rect.left, m.y - rect.top);
+        userPan = true;
+        gestureMoved = true;
+      }
+      return;
+    }
+
+    if (activelyPanning && panLast && !controlsOpen()) {
+      const dx = ev.clientX - panLast.x;
+      const dy = ev.clientY - panLast.y;
+      if (Math.abs(dx) + Math.abs(dy) > 2) gestureMoved = true;
+      camera = {
+        ...camera,
+        x: camera.x - dx / camera.zoom,
+        y: camera.y - dy / camera.zoom,
+      };
+      panLast = { x: ev.clientX, y: ev.clientY };
+      userPan = true;
+    }
+  });
+
+  const endPointer = (ev: PointerEvent) => {
+    const wasTracking = pointers.has(ev.pointerId);
+    pointers.delete(ev.pointerId);
+    if (pointers.size < 2) pinchStartDist = 0;
+
+    if (pointers.size === 0) {
+      if (wasTracking && !gestureMoved && !controlsOpen()) {
+        const now = performance.now();
+        const pos = { x: ev.clientX, y: ev.clientY };
+        if (
+          lastTapPos &&
+          now - lastTapAt < 320 &&
+          Math.hypot(pos.x - lastTapPos.x, pos.y - lastTapPos.y) < 28
+        ) {
+          fitCamera();
+          lastTapAt = 0;
+          lastTapPos = null;
+        } else {
+          lastTapAt = now;
+          lastTapPos = pos;
+        }
+      }
+      activelyPanning = false;
+      panLast = null;
+    } else if (pointers.size === 1 && !controlsOpen()) {
+      const only = [...pointers.values()][0]!;
+      activelyPanning = true;
+      panLast = { x: only.x, y: only.y };
+    }
+  };
+
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
 
   menuBtn.addEventListener("click", () => setMenuOpen(menuPanel.hidden));
   menuPanel.addEventListener("click", (ev) => {
@@ -231,16 +426,18 @@ export function mountPlay(api: AppApi): {
     const action = btn.dataset.menuAction;
     setMenuOpen(false);
     if (action === "restart") dispatch({ type: "restart" });
+    if (action === "fit") fitCamera();
     if (action === "exit") {
       if (fromEditor) api.showScreen("editor");
       else api.showScreen("menu");
     }
   });
 
-  controls = bindControls((intent) => dispatch(intent), {
-    root: screen,
-    swipeTarget: canvas,
+  controlsBtn.addEventListener("click", () => {
+    setControlsOpen(!controlsOpen());
   });
+
+  rebindControls();
 
   const ro = new ResizeObserver(() => layout());
   ro.observe(boardShell);
@@ -258,41 +455,186 @@ export function mountPlay(api: AppApi): {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Editor
+// ---------------------------------------------------------------------------
+
+type DenseDoc = LevelDocument & {
+  width: number;
+  height: number;
+  background: string[];
+  areaMap: number[];
+};
+
+type GrowDir = "left" | "right" | "up" | "down";
+
+function growDense(doc: DenseDoc, dir: GrowDir): void {
+  const w = doc.width;
+  const h = doc.height;
+  const nw = dir === "left" || dir === "right" ? w + CHUNK : w;
+  const nh = dir === "up" || dir === "down" ? h + CHUNK : h;
+  const ox = dir === "left" ? CHUNK : 0;
+  const oy = dir === "up" ? CHUNK : 0;
+  const bg = Array.from({ length: nw * nh }, () => "grass");
+  const am = Array.from({ length: nw * nh }, () => 0);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const si = y * w + x;
+      const di = (y + oy) * nw + (x + ox);
+      bg[di] = doc.background[si] ?? "grass";
+      am[di] = doc.areaMap[si] ?? 0;
+    }
+  }
+  doc.width = nw;
+  doc.height = nh;
+  doc.background = bg;
+  doc.areaMap = am;
+  for (const e of doc.entities) {
+    e.x += ox;
+    e.y += oy;
+  }
+  if (doc.portals) {
+    for (const p of doc.portals) {
+      p.x += ox;
+      p.y += oy;
+    }
+  }
+  if (doc.spawn) {
+    doc.spawn = { x: doc.spawn.x + ox, y: doc.spawn.y + oy };
+  }
+}
+
+function entitiesFromWorld(world: World): LevelEntitySpec[] {
+  const out: LevelEntitySpec[] = [];
+  for (const e of world.entities.all()) {
+    if (!e.alive) continue;
+    if (e.kind === "text") {
+      const td = world.textData.get(e.id);
+      const spec: LevelEntitySpec = {
+        kind: "text",
+        id: td ? String(td.wordId) : String(e.noun),
+        x: e.position.x,
+        y: e.position.y,
+      };
+      if (e.layer !== 1) spec.layer = e.layer;
+      out.push(spec);
+    } else {
+      const spec: LevelEntitySpec = {
+        kind: "object",
+        id: String(e.noun),
+        x: e.position.x,
+        y: e.position.y,
+      };
+      if (e.layer !== 0) spec.layer = e.layer;
+      out.push(spec);
+    }
+  }
+  return out;
+}
+
+/** Keep a dense working copy while editing; flatten chunked docs on open. */
+function toDenseWorkingDoc(src: LevelDocument): DenseDoc {
+  const world = loadDocument(src);
+  const dense: DenseDoc = {
+    id: src.id,
+    name: src.name,
+    width: world.width,
+    height: world.height,
+    background: [...world.background],
+    areaMap: [...world.areaMap],
+    entities: entitiesFromWorld(world),
+    globalRules: structuredClone(src.globalRules ?? world.globalRuleSpecs),
+    areas: structuredClone((src.areas?.length ? src.areas : world.areaDefs) ?? []),
+    chunks: [],
+    chunkSize: src.chunkSize ?? DEFAULT_CHUNK_SIZE,
+  };
+  if (src.isOverworld || world.isOverworld) dense.isOverworld = true;
+  if (world.portals.length) {
+    dense.portals = world.portals.map((p) => ({ ...p }));
+  }
+  if (src.spawn) {
+    dense.spawn = {
+      x: src.spawn.x - world.originX,
+      y: src.spawn.y - world.originY,
+    };
+  }
+  return dense;
+}
+
 export function mountEditor(api: AppApi): {
   openDoc: (doc: LevelDocument) => void;
   newBlank: () => void;
 } {
+  const screen = document.querySelector<HTMLElement>("#screen-editor")!;
   const canvas = document.querySelector<HTMLCanvasElement>("#editor-canvas")!;
   const boardShell = document.querySelector<HTMLElement>(".editor-board")!;
   const drawer = document.querySelector<HTMLElement>("#tile-drawer")!;
   const nameInput = document.querySelector<HTMLInputElement>("#editor-name")!;
   const globalsEl = document.querySelector<HTMLElement>("#global-rules-editor")!;
   const areasEl = document.querySelector<HTMLElement>("#areas-editor")!;
+  const toolsBtn = document.querySelector<HTMLButtonElement>("#btn-editor-tools")!;
+  const toolbar = document.querySelector<HTMLElement>("#editor-toolbar")!;
+
   const renderer = new CanvasRenderer(canvas);
   const lexicon = createDefaultLexicon();
 
-  let doc: LevelDocument = createBlankLevel(`custom-${Date.now()}`, "Untitled", 16, 12);
+  let doc: DenseDoc = toDenseWorkingDoc(
+    createBlankLevel(`custom-${Date.now()}`, "Untitled", 16, 12),
+  );
   let layer: "objects" | "text" | "background" | "areas" | "erase" = "objects";
   let drawMode: "paint" | "box" | "fill" = "paint";
   let selected = "wall";
   let selectedArea = 1;
   let painting = false;
   let boxStart: { x: number; y: number } | null = null;
+  let camera: Camera = { x: 8, y: 6, zoom: 32 };
+  let userPan = false;
+
+  const pointers = new Map<number, { x: number; y: number }>();
+  let pinchStartDist = 0;
+  let pinchStartZoom = 32;
+  let panLast: { x: number; y: number } | null = null;
+  let activelyPanning = false;
+
+  function toolsOpen(): boolean {
+    return !toolbar.hidden && !toolbar.classList.contains("is-collapsed");
+  }
+
+  function setToolsOpen(open: boolean): void {
+    toolbar.hidden = !open;
+    toolbar.classList.toggle("is-collapsed", !open);
+    toolsBtn.setAttribute("aria-pressed", open ? "true" : "false");
+  }
 
   function worldFromDoc(): World {
     return loadDocument(doc);
   }
 
+  function layoutAndFit(forceFit: boolean): void {
+    const world = worldFromDoc();
+    const rect = boardShell.getBoundingClientRect();
+    renderer.resizeViewport(Math.max(120, rect.width), Math.max(120, rect.height));
+    if (forceFit || !userPan) {
+      camera = renderer.cameraFitWorld(world);
+      userPan = false;
+    }
+  }
+
   function redraw(): void {
     const world = worldFromDoc();
     const rect = boardShell.getBoundingClientRect();
-    renderer.fit(world, Math.max(120, rect.width - 4), Math.max(120, rect.height - 4));
-    renderer.draw(world, {
+    renderer.resizeViewport(Math.max(120, rect.width), Math.max(120, rect.height));
+    if (!userPan && camera.zoom <= 0) {
+      camera = renderer.cameraFitWorld(world);
+    }
+    const drawOpts: Parameters<CanvasRenderer["draw"]>[1] = {
       showAreas: layer === "areas",
       areaDefs: doc.areas,
-      ...(doc.portals ? { portals: doc.portals } : {}),
       t: performance.now() / 1000,
-    });
+      camera,
+    };
+    if (doc.portals) drawOpts.portals = doc.portals;
+    renderer.draw(world, drawOpts);
   }
 
   function buildDrawer(): void {
@@ -301,7 +643,10 @@ export function mountEditor(api: AppApi): {
       {
         title: "Objects",
         forLayer: "objects",
-        items: lexicon.allNouns().map((n) => n.id).filter((id) => id !== "text"),
+        items: lexicon
+          .allNouns()
+          .map((n) => n.id)
+          .filter((id) => id !== "text"),
       },
       {
         title: "Text",
@@ -392,18 +737,72 @@ export function mountEditor(api: AppApi): {
     });
   }
 
+  function growAndKeepView(dir: GrowDir): void {
+    growDense(doc, dir);
+    if (dir === "left") {
+      camera = { ...camera, x: camera.x + CHUNK };
+      userPan = true;
+    } else if (dir === "up") {
+      camera = { ...camera, y: camera.y + CHUNK };
+      userPan = true;
+    }
+  }
+
+  function expandForEdge(x: number, y: number): { x: number; y: number } {
+    let cx = x;
+    let cy = y;
+    // Grow when painting on the outer rim so the map expands by one chunk.
+    if (cx === 0) {
+      growAndKeepView("left");
+      cx += CHUNK;
+    } else if (cx === doc.width - 1) {
+      growAndKeepView("right");
+    }
+    if (cy === 0) {
+      growAndKeepView("up");
+      cy += CHUNK;
+    } else if (cy === doc.height - 1) {
+      growAndKeepView("down");
+    }
+    return { x: cx, y: cy };
+  }
+
   function cellFromEvent(ev: PointerEvent): { x: number; y: number } | null {
-    const world = worldFromDoc();
     const rect = canvas.getBoundingClientRect();
-    const cell = renderer.cellSize;
-    const pad = renderer.padding;
-    const x = Math.floor((ev.clientX - rect.left - pad) / cell);
-    const y = Math.floor((ev.clientY - rect.top - pad) / cell);
-    if (x < 0 || y < 0 || x >= world.width || y >= world.height) return null;
+    const worldPt = renderer.screenToWorld(ev.clientX - rect.left, ev.clientY - rect.top, camera);
+    let x = Math.floor(worldPt.x);
+    let y = Math.floor(worldPt.y);
+
+    // Grow toward out-of-bounds taps (paint outside edges).
+    let guard = 0;
+    while (guard++ < 8) {
+      if (x < 0) {
+        growAndKeepView("left");
+        x += CHUNK;
+        continue;
+      }
+      if (y < 0) {
+        growAndKeepView("up");
+        y += CHUNK;
+        continue;
+      }
+      if (x >= doc.width) {
+        growAndKeepView("right");
+        continue;
+      }
+      if (y >= doc.height) {
+        growAndKeepView("down");
+        continue;
+      }
+      break;
+    }
+    if (x < 0 || y < 0 || x >= doc.width || y >= doc.height) return null;
     return { x, y };
   }
 
-  function applyCell(x: number, y: number): void {
+  function applyCell(rawX: number, rawY: number): void {
+    const growLayers = layer === "background" || layer === "objects" || layer === "text";
+    const { x, y } = growLayers ? expandForEdge(rawX, rawY) : { x: rawX, y: rawY };
     const i = y * doc.width + x;
     if (layer === "background") {
       doc.background[i] = selected;
@@ -417,7 +816,6 @@ export function mountEditor(api: AppApi): {
       doc.entities = doc.entities.filter((e) => !(e.x === x && e.y === y));
       return;
     }
-    // Replace same kind in cell
     doc.entities = doc.entities.filter(
       (e) => !(e.x === x && e.y === y && e.kind === (layer === "text" ? "text" : "object")),
     );
@@ -444,8 +842,8 @@ export function mountEditor(api: AppApi): {
       applyCell(x, y);
       return;
     }
-    const arr = layer === "background" ? doc.background : doc.areaMap.map(String);
-    const target = arr[y * doc.width + x];
+    const target =
+      layer === "background" ? doc.background[y * doc.width + x] : String(doc.areaMap[y * doc.width + x]);
     const replacement = layer === "background" ? selected : String(selectedArea);
     if (target === replacement) return;
     const stack = [{ x, y }];
@@ -471,37 +869,67 @@ export function mountEditor(api: AppApi): {
   }
 
   function openDoc(next: LevelDocument): void {
-    doc = structuredClone(next);
+    doc = toDenseWorkingDoc(structuredClone(next));
     nameInput.value = doc.name;
     if (!doc.areas.length) {
       doc.areas = [{ id: 1, name: "Area 1", color: "rgba(80,160,200,0.35)" }];
     }
     selectedArea = doc.areas[0]?.id ?? 1;
+    userPan = false;
     buildDrawer();
     renderGlobals();
     renderAreas();
     api.showScreen("editor");
-    requestAnimationFrame(redraw);
+    requestAnimationFrame(() => {
+      layoutAndFit(true);
+      redraw();
+      requestAnimationFrame(() => {
+        layoutAndFit(true);
+        redraw();
+      });
+    });
   }
 
   function newBlank(): void {
     openDoc(createBlankLevel(`custom-${Date.now()}`, "Untitled", 16, 12));
   }
 
-  // Toolbar
+  toolsBtn.addEventListener("click", () => {
+    setToolsOpen(!toolsOpen());
+    requestAnimationFrame(() => {
+      layoutAndFit(false);
+      redraw();
+    });
+  });
+
   document.querySelector("#editor-toolbar")?.addEventListener("click", (ev) => {
     const t = (ev.target as HTMLElement).closest<HTMLElement>("[data-layer],[data-draw]");
     if (!t) return;
     if (t.dataset.layer) {
       layer = t.dataset.layer as typeof layer;
-      document.querySelectorAll("[data-layer]").forEach((el) => el.classList.toggle("is-active", el === t));
+      document
+        .querySelectorAll("[data-layer]")
+        .forEach((el) => el.classList.toggle("is-active", el === t));
       buildDrawer();
       redraw();
     }
     if (t.dataset.draw) {
       drawMode = t.dataset.draw as typeof drawMode;
-      document.querySelectorAll("[data-draw]").forEach((el) => el.classList.toggle("is-active", el === t));
+      document
+        .querySelectorAll("[data-draw]")
+        .forEach((el) => el.classList.toggle("is-active", el === t));
     }
+  });
+
+  screen.querySelectorAll<HTMLButtonElement>("[data-ed-zoom]").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      const dir = btn.dataset.edZoom;
+      const factor = dir === "in" ? ZOOM_STEP : 1 / ZOOM_STEP;
+      camera = zoomAround(renderer, camera, factor, renderer.viewW / 2, renderer.viewH / 2);
+      userPan = true;
+      redraw();
+    });
   });
 
   globalsEl.addEventListener("input", (ev) => {
@@ -573,24 +1001,54 @@ export function mountEditor(api: AppApi): {
   document.querySelector("[data-action='editor-save']")?.addEventListener("click", () => {
     doc.name = nameInput.value.trim() || "Untitled";
     if (!doc.id.startsWith("custom-")) doc.id = `custom-${Date.now()}`;
-    saveCustomLevel(doc);
+    saveCustomLevel(migrateDenseToChunks(doc));
     statusToast("Saved");
   });
 
   document.querySelector("[data-action='editor-test']")?.addEventListener("click", () => {
     doc.name = nameInput.value.trim() || doc.name;
-    api.openLevel(doc, { fromEditor: true });
+    api.openLevel(migrateDenseToChunks(doc), { fromEditor: true });
   });
 
   document.querySelector("[data-action='editor-back']")?.addEventListener("click", () => {
     api.showScreen("editor-hub");
   });
 
+  // Camera gestures + paint: tools open → paint; tools collapsed → pan
   canvas.addEventListener("pointerdown", (ev) => {
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+
+    if (pointers.size === 2) {
+      painting = false;
+      boxStart = null;
+      const pts = [...pointers.values()];
+      pinchStartDist = Math.max(1, dist(pts[0]!, pts[1]!));
+      pinchStartZoom = camera.zoom;
+      activelyPanning = false;
+      panLast = null;
+      return;
+    }
+
+    if (!toolsOpen()) {
+      activelyPanning = true;
+      panLast = { x: ev.clientX, y: ev.clientY };
+      try {
+        canvas.setPointerCapture(ev.pointerId);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
     const cell = cellFromEvent(ev);
     if (!cell) return;
     painting = true;
-    canvas.setPointerCapture(ev.pointerId);
+    try {
+      canvas.setPointerCapture(ev.pointerId);
+    } catch {
+      /* ignore */
+    }
     if (drawMode === "box") {
       boxStart = cell;
       return;
@@ -603,25 +1061,86 @@ export function mountEditor(api: AppApi): {
     applyCell(cell.x, cell.y);
     redraw();
   });
+
   canvas.addEventListener("pointermove", (ev) => {
-    if (!painting || drawMode !== "paint") return;
+    if (!pointers.has(ev.pointerId)) return;
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+
+    if (pointers.size >= 2) {
+      const pts = [...pointers.values()];
+      const a = pts[0]!;
+      const b = pts[1]!;
+      const d = Math.max(1, dist(a, b));
+      const rect = canvas.getBoundingClientRect();
+      const m = mid(a, b);
+      const targetZoom = clampZoom(pinchStartZoom * (d / pinchStartDist));
+      const f = targetZoom / camera.zoom;
+      if (Math.abs(f - 1) > 0.001) {
+        camera = zoomAround(renderer, camera, f, m.x - rect.left, m.y - rect.top);
+        userPan = true;
+        redraw();
+      }
+      return;
+    }
+
+    if (activelyPanning && panLast && !toolsOpen()) {
+      const dx = ev.clientX - panLast.x;
+      const dy = ev.clientY - panLast.y;
+      camera = {
+        ...camera,
+        x: camera.x - dx / camera.zoom,
+        y: camera.y - dy / camera.zoom,
+      };
+      panLast = { x: ev.clientX, y: ev.clientY };
+      userPan = true;
+      redraw();
+      return;
+    }
+
+    if (!painting || drawMode !== "paint" || !toolsOpen()) return;
     const cell = cellFromEvent(ev);
     if (!cell) return;
     applyCell(cell.x, cell.y);
     redraw();
   });
+
   canvas.addEventListener("pointerup", (ev) => {
-    if (drawMode === "box" && boxStart) {
+    pointers.delete(ev.pointerId);
+    if (pointers.size < 2) pinchStartDist = 0;
+
+    if (drawMode === "box" && boxStart && toolsOpen()) {
       const end = cellFromEvent(ev);
       if (end) applyBox(boxStart, end);
       boxStart = null;
       redraw();
     }
     painting = false;
+    if (pointers.size === 0) {
+      activelyPanning = false;
+      panLast = null;
+    } else if (pointers.size === 1 && !toolsOpen()) {
+      const only = [...pointers.values()][0]!;
+      activelyPanning = true;
+      panLast = { x: only.x, y: only.y };
+    }
   });
 
-  new ResizeObserver(() => redraw()).observe(boardShell);
-  void atlas.ready.then(() => redraw());
+  canvas.addEventListener("pointercancel", () => {
+    pointers.clear();
+    painting = false;
+    boxStart = null;
+    activelyPanning = false;
+    panLast = null;
+  });
+
+  new ResizeObserver(() => {
+    layoutAndFit(false);
+    redraw();
+  }).observe(boardShell);
+  void atlas.ready.then(() => {
+    layoutAndFit(true);
+    redraw();
+  });
 
   return { openDoc, newBlank };
 }

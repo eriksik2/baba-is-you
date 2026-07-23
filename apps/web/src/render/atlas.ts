@@ -3,8 +3,9 @@
 export const CREDITS =
   "Tiles: pastoral tileset by pebonius (CC0). Sheep: LPC sheep walk by Daniel Eddeland (CC-BY).";
 
-const PASTORAL_SRC = "/assets/tiles/pastoral.png";
-const SHEEP_SRC = "/assets/sprites/sheep_walk.png";
+const BASE = import.meta.env.BASE_URL || "/";
+const PASTORAL_SRC = `${BASE}assets/tiles/pastoral.png`;
+const SHEEP_SRC = `${BASE}assets/sprites/sheep_walk.png`;
 
 /** Pastoral sheet: 192×256, 32×32 cells, 6 cols × 8 rows. */
 export const PASTORAL_CELL = 32;
@@ -56,7 +57,6 @@ export class AssetAtlas {
     this.sheep = sheep;
   }
 
-  /** Draw pastoral cell (col,row) into ctx at dx,dy sized s×s. */
   drawPastoral(
     ctx: CanvasRenderingContext2D,
     col: number,
@@ -73,7 +73,6 @@ export class AssetAtlas {
     ctx.drawImage(img, sx, sy, PASTORAL_CELL, PASTORAL_CELL, dx, dy, s, s);
   }
 
-  /** Draw sheep walk frame facing dir into a cell. */
   drawSheep(
     ctx: CanvasRenderingContext2D,
     dx: number,
@@ -88,7 +87,6 @@ export class AssetAtlas {
     const row = SHEEP_ROW[dir] ?? 2;
     const sx = col * SHEEP_FRAME;
     const sy = row * SHEEP_FRAME;
-    // Slight inset so the 128px art fills the play cell cleanly.
     const pad = s * 0.05;
     ctx.drawImage(
       img,

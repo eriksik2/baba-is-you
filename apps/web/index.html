@@ -20,7 +20,6 @@
   </head>
   <body>
     <div id="app">
-      <!-- MAIN MENU -->
       <section id="screen-menu" class="screen is-active" data-screen="menu">
         <div class="menu-hero">
           <h1 class="brand brand-xl">Baba</h1>
@@ -34,7 +33,6 @@
         <p id="menu-note" class="menu-note"></p>
       </section>
 
-      <!-- PLAY / OVERWORLD -->
       <section id="screen-play" class="screen" data-screen="play" hidden>
         <header class="play-top">
           <div class="top-text">
@@ -43,6 +41,9 @@
           </div>
           <div class="top-actions">
             <p id="status" class="status" role="status"></p>
+            <button type="button" class="icon-btn" id="btn-controls" aria-label="Show controls" aria-pressed="false">
+              ⌃
+            </button>
             <button type="button" class="icon-btn" id="btn-menu" aria-label="Menu" aria-expanded="false">
               <span class="burger" aria-hidden="true"></span>
             </button>
@@ -51,6 +52,7 @@
 
         <div id="hamburger-panel" class="hamburger-panel" hidden>
           <button type="button" data-menu-action="restart">Restart</button>
+          <button type="button" data-menu-action="fit">Fit level</button>
           <button type="button" data-menu-action="exit">Exit</button>
         </div>
 
@@ -60,11 +62,15 @@
 
         <div class="stage">
           <div class="board-shell">
-            <canvas id="game" width="320" height="320" aria-label="Game board. Swipe to move."></canvas>
+            <canvas id="game" width="320" height="320" aria-label="Game board. Drag to pan, pinch to zoom."></canvas>
+            <div class="zoom-fab" aria-label="Zoom">
+              <button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>
+              <button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button>
+            </div>
           </div>
         </div>
 
-        <div class="touch-dock" aria-label="Touch controls">
+        <div class="touch-dock is-collapsed" id="touch-dock" aria-label="Touch controls" hidden>
           <button type="button" class="btn undo-fab" data-intent="undo" aria-label="Undo">Undo</button>
           <div class="dpad" role="group" aria-label="Move">
             <button type="button" class="btn pad" data-intent="up" aria-label="Up" style="grid-area: up">
@@ -86,7 +92,6 @@
         </div>
       </section>
 
-      <!-- EDITOR HUB -->
       <section id="screen-editor-hub" class="screen" data-screen="editor-hub" hidden>
         <header class="subhead">
           <button type="button" class="text-btn" data-action="back-menu">← Back</button>
@@ -100,20 +105,20 @@
         <div id="editor-picker" class="picker-list" hidden></div>
       </section>
 
-      <!-- EDITOR WORKSPACE -->
       <section id="screen-editor" class="screen" data-screen="editor" hidden>
         <header class="editor-top">
-          <button type="button" class="text-btn" data-action="editor-back">← Hub</button>
+          <button type="button" class="text-btn" data-action="editor-back">←</button>
           <input id="editor-name" class="editor-name" maxlength="40" aria-label="Level name" />
           <div class="editor-top-btns">
+            <button type="button" class="chip-btn" id="btn-editor-tools" aria-pressed="false">Tools</button>
             <button type="button" class="chip-btn" data-action="editor-test">Test</button>
             <button type="button" class="chip-btn primary" data-action="editor-save">Save</button>
           </div>
         </header>
 
-        <div class="editor-toolbar" id="editor-toolbar">
+        <div class="editor-toolbar is-collapsed" id="editor-toolbar" hidden>
           <div class="tool-group" role="tablist" aria-label="Layer">
-            <button type="button" class="chip-btn is-active" data-layer="objects">Objects</button>
+            <button type="button" class="chip-btn is-active" data-layer="objects">Obj</button>
             <button type="button" class="chip-btn" data-layer="text">Text</button>
             <button type="button" class="chip-btn" data-layer="background">Ground</button>
             <button type="button" class="chip-btn" data-layer="areas">Areas</button>
@@ -122,28 +127,28 @@
           <div class="tool-group" role="tablist" aria-label="Draw mode">
             <button type="button" class="chip-btn is-active" data-draw="paint">Paint</button>
             <button type="button" class="chip-btn" data-draw="box">Box</button>
-            <button type="button" class="chip-btn" data-draw="fill">Bucket</button>
+            <button type="button" class="chip-btn" data-draw="fill">Fill</button>
           </div>
+          <div class="tile-drawer horizontal" id="tile-drawer"></div>
         </div>
 
         <div class="editor-body">
-          <aside class="tile-drawer" id="tile-drawer"></aside>
           <div class="board-shell editor-board">
             <canvas id="editor-canvas" width="320" height="320" aria-label="Editor board"></canvas>
+            <div class="zoom-fab" aria-label="Zoom">
+              <button type="button" class="icon-btn" data-ed-zoom="in" aria-label="Zoom in">+</button>
+              <button type="button" class="icon-btn" data-ed-zoom="out" aria-label="Zoom out">−</button>
+            </div>
           </div>
         </div>
 
-        <details class="globals-panel">
-          <summary>Global rules</summary>
+        <details class="globals-panel" id="editor-meta">
+          <summary>Rules &amp; areas</summary>
           <div id="global-rules-editor" class="global-rules-editor"></div>
           <button type="button" class="chip-btn" data-action="add-global-rule">+ Rule</button>
-        </details>
-
-        <details class="globals-panel">
-          <summary>Areas</summary>
           <div id="areas-editor" class="areas-editor"></div>
           <button type="button" class="chip-btn" data-action="add-area">+ Area</button>
-          <p class="hint">Select an area, then paint/box on Areas layer. Adjacent paint extends it.</p>
+          <p class="hint">Levels are chunk-based — paint outside edges to grow the map.</p>
         </details>
       </section>
     </div>

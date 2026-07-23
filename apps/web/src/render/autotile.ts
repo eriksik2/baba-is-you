@@ -132,23 +132,22 @@ export function drawAutotile(
   s: number,
   phase: number,
 ): void {
+  // Always paint a solid underlay — pastoral cells often sit on transparency.
+  drawFallback(ctx, tile, dx, dy, s);
+
   const base = TILE_BASE[tile] ?? TILE_BASE.grass!;
-  const hasAtlas = atlas.pastoral !== null && atlas.pastoral.complete;
+  const hasAtlas = atlas.pastoral !== null && atlas.pastoral.complete && atlas.pastoral.naturalWidth > 0;
 
   if (hasAtlas) {
     atlas.drawPastoral(ctx, base.col, base.row, dx, dy, s);
-    // grass2: subtle darkening so checker / alternate patches read apart
     if (tile === "grass2") {
       ctx.fillStyle = "rgba(40, 70, 20, 0.18)";
       ctx.fillRect(dx, dy, s, s);
     }
-  } else {
-    drawFallback(ctx, tile, dx, dy, s);
   }
 
   const overlay = TILE_OVERLAY[tile];
   if (overlay && hasAtlas) {
-    // Soft grass already drawn; stamp plant icon inset.
     const inset = s * 0.08;
     atlas.drawPastoral(ctx, overlay.col, overlay.row, dx + inset, dy + inset, s - inset * 2);
   } else if (overlay && !hasAtlas) {

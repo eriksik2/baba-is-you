@@ -3,22 +3,28 @@ import { createDefaultLexicon } from "../lexicon";
 import { asNounId, asWordId } from "../types";
 import { World } from "../world/world";
 import type { LevelDocument } from "./types";
+import { flattenChunks, migrateDenseToChunks, shiftEntitiesToOrigin } from "./chunks";
 
-/** Hydrate a World from a LevelDocument (areas, background, globals, entities). */
+/** Hydrate a World from a LevelDocument (chunked or legacy dense). */
 export function loadDocument(
   doc: LevelDocument,
   lexicon: Lexicon = createDefaultLexicon(),
 ): World {
-  const world = new World(doc.width, doc.height, lexicon);
-  world.background = [...doc.background];
-  world.areaMap = [...doc.areaMap];
-  world.areaDefs = doc.areas.map((a) => ({ ...a }));
-  world.globalRuleSpecs = doc.globalRules.map((g) => ({ ...g }));
-  world.documentId = doc.id;
-  world.isOverworld = !!doc.isOverworld;
-  world.portals = (doc.portals ?? []).map((p) => ({ ...p }));
+  const chunked = migrateDenseToChunks(doc);
+  const dense = flattenChunks(chunked, 0);
 
-  for (const e of doc.entities) {
+  const world = new World(dense.width, dense.height, lexicon);
+  world.background = dense.background;
+  world.areaMap = dense.areaMap;
+  world.areaDefs = (chunked.areas ?? []).map((a) => ({ ...a }));
+  world.globalRuleSpecs = (chunked.globalRules ?? []).map((g) => ({ ...g }));
+  world.documentId = chunked.id;
+  world.isOverworld = !!chunked.isOverworld;
+  world.originX = dense.originX;
+  world.originY = dense.originY;
+
+  const entities = shiftEntitiesToOrigin(chunked.entities, dense.originX, dense.originY);
+  for (const e of entities) {
     if (e.kind === "object") {
       const noun = asNounId(e.id);
       if (!lexicon.getNoun(noun)) {
@@ -33,6 +39,12 @@ export function loadDocument(
       world.spawnText(wordId, { x: e.x, y: e.y }, e.layer ?? 1);
     }
   }
+
+  world.portals = (chunked.portals ?? []).map((p) => ({
+    ...p,
+    x: p.x - dense.originX,
+    y: p.y - dense.originY,
+  }));
 
   world.rebuildRules();
   return world;

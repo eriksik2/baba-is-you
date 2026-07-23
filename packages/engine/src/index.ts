@@ -107,6 +107,10 @@ export {
   createInitialProgress,
   unlockAfterClear,
   canEnterPortal,
+  DEFAULT_CHUNK_SIZE,
+  flattenChunks,
+  migrateDenseToChunks,
+  setChunkCell,
 } from "./campaign";
 export type {
   GlobalRuleSpec,

@@ -74,7 +74,14 @@ body {
 
 #screen-play.is-active {
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  gap: 0.45rem;
+  gap: 0.35rem;
+  height: 100dvh;
+  max-height: 100svh;
+  overflow: hidden;
+}
+
+#screen-play.controls-open.is-active {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
 #screen-editor-hub.is-active {
@@ -290,30 +297,41 @@ body {
 .stage {
   min-height: 0;
   display: grid;
-  align-content: center;
+  align-content: stretch;
+  height: 100%;
 }
 
 .board-shell {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   min-height: 0;
   min-width: 0;
   width: 100%;
   height: 100%;
+  position: relative;
 }
 
 #game,
 #editor-canvas {
   display: block;
-  max-width: 100%;
-  max-height: 100%;
-  background: linear-gradient(160deg, var(--bg-mid), #1c2738);
+  width: 100%;
+  height: 100%;
+  background: #152018;
   border: 2px solid #00000044;
   border-radius: 14px;
   box-shadow: 0 10px 28px #00000055;
   touch-action: none;
   user-select: none;
+}
+
+.zoom-fab {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  display: grid;
+  gap: 0.3rem;
+  z-index: 5;
 }
 
 .touch-dock {
@@ -323,6 +341,40 @@ body {
   gap: 0.65rem;
   padding-top: 0.1rem;
   user-select: none;
+}
+
+.touch-dock[hidden],
+.touch-dock.is-collapsed {
+  display: none !important;
+}
+
+.editor-toolbar[hidden],
+.editor-toolbar.is-collapsed {
+  display: none !important;
+}
+
+.tile-drawer.horizontal {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  padding: 0.2rem 0;
+  max-width: 100%;
+}
+
+.tile-drawer.horizontal .tile-cat {
+  display: none;
+}
+
+.tile-drawer.horizontal .tile-swatch {
+  flex: 0 0 auto;
+}
+
+.editor-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  min-height: 0;
+  height: 100%;
 }
 
 .undo-fab {
@@ -472,17 +524,17 @@ body {
 
 .editor-body {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: 0.45rem;
   min-height: 0;
+  height: 100%;
 }
 
 .tile-drawer {
-  overflow-y: auto;
-  display: grid;
-  gap: 0.35rem;
+  overflow-x: auto;
+  display: flex;
+  gap: 0.3rem;
   align-content: start;
-  padding-right: 0.15rem;
 }
 
 .tile-cat {
@@ -602,9 +654,6 @@ body {
 }
 
 @media (min-width: 900px) {
-  .editor-body {
-    grid-template-columns: 140px minmax(0, 1fr);
-  }
   .dpad {
     width: 200px;
   }

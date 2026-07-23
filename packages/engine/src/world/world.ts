@@ -45,6 +45,9 @@ export class World {
   documentId = "";
   isOverworld = false;
   portals: NonNullable<LevelDocument["portals"]> = [];
+  /** World-space origin of cell (0,0) after chunk flatten. */
+  originX = 0;
+  originY = 0;
 
   constructor(
     width: number,
@@ -233,6 +236,8 @@ export class World {
     w.documentId = this.documentId;
     w.isOverworld = this.isOverworld;
     w.portals = this.portals.map((p) => ({ ...p }));
+    w.originX = this.originX;
+    w.originY = this.originY;
     return w;
   }
 }
