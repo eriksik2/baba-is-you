@@ -7,7 +7,13 @@ import type { Lexicon } from "../lexicon";
 import { createDefaultLexicon } from "../lexicon";
 import { parseRules, nounHasProperty, type RuleSet, type TextTile } from "../rules";
 import type { GameStatus, Vec2 } from "../types";
-import type { AreaDef, GlobalRuleSpec, LevelDocument } from "../campaign/types";
+import type {
+  AreaDef,
+  GlobalRuleSpec,
+  LevelCameraSettings,
+  LevelDocument,
+} from "../campaign/types";
+import { DEFAULT_CAMERA } from "../campaign/types";
 import { rulesFromGlobalSpecs } from "../campaign/global-rules";
 
 /** Extra data for text entities. */
@@ -45,6 +51,8 @@ export class World {
   documentId = "";
   isOverworld = false;
   portals: NonNullable<LevelDocument["portals"]> = [];
+  /** Default play camera for this level (areas may override). */
+  camera: LevelCameraSettings = { ...DEFAULT_CAMERA };
   /** World-space origin of cell (0,0) after chunk flatten. */
   originX = 0;
   originY = 0;
@@ -271,6 +279,7 @@ export class World {
     w.documentId = this.documentId;
     w.isOverworld = this.isOverworld;
     w.portals = this.portals.map((p) => ({ ...p }));
+    w.camera = { ...this.camera };
     w.originX = this.originX;
     w.originY = this.originY;
     return w;

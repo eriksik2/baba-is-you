@@ -5,7 +5,12 @@ export type {
   LevelEntitySpec,
   LevelDocument,
   CampaignProgress,
+  CameraMode,
+  LevelCameraSettings,
+  LevelPortal,
+  LevelChunk,
 } from "./types";
+export { DEFAULT_CAMERA } from "./types";
 
 export {
   BG,
@@ -24,12 +29,13 @@ export {
 } from "./builtin";
 export type { BgTile, Rect } from "./builtin";
 
-export { loadDocument, rulesFromGlobalSpecs } from "./loader";
+export { loadDocument, rulesFromGlobalSpecs, resolveCamera } from "./loader";
 export { createInitialProgress, unlockAfterClear, canEnterPortal } from "./progress";
 export {
   DEFAULT_CHUNK_SIZE,
   flattenChunks,
   migrateDenseToChunks,
+  cropDense,
   emptyChunk,
   setChunkCell,
   getChunkBg,

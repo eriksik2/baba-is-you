@@ -109,9 +109,11 @@ export {
   unlockAfterClear,
   canEnterPortal,
   DEFAULT_CHUNK_SIZE,
+  DEFAULT_CAMERA,
   flattenChunks,
   migrateDenseToChunks,
   setChunkCell,
+  resolveCamera,
 } from "./campaign";
 export type {
   GlobalRuleSpec,
@@ -121,4 +123,6 @@ export type {
   CampaignProgress,
   BgTile,
   Rect,
+  CameraMode,
+  LevelCameraSettings,
 } from "./campaign";

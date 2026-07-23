@@ -1,5 +1,6 @@
 import type {
   GameSession,
+  LevelCameraSettings,
   LevelDocument,
   LevelEntitySpec,
   PlayerIntent,
@@ -7,6 +8,7 @@ import type {
 } from "@baba/engine";
 import {
   CAMPAIGN_LEVELS,
+  DEFAULT_CAMERA,
   DEFAULT_CHUNK_SIZE,
   GameSession as Session,
   canEnterPortal,
@@ -14,6 +16,7 @@ import {
   createDefaultLexicon,
   loadDocument,
   migrateDenseToChunks,
+  resolveCamera,
   unlockAfterClear,
 } from "@baba/engine";
 import { CanvasRenderer, type Camera, type LerpState } from "../render/canvas-renderer";
@@ -28,12 +31,13 @@ import {
 
 const LERP_MS = 110;
 const FOLLOW = 0.22;
-/** Play shows ~7 cells on the short axis — readable tiles on phones. */
-const PLAY_CELLS = 7;
 const ZOOM_MIN = 14;
 const ZOOM_MAX = 96;
 const ZOOM_STEP = 1.2;
 const CHUNK = DEFAULT_CHUNK_SIZE;
+/** Reference play viewport used for editor camera outline. */
+const PREVIEW_VIEW_W = 360;
+const PREVIEW_VIEW_H = 420;
 
 export type AppApi = {
   showScreen: (id: "menu" | "play" | "editor-hub" | "editor") => void;
@@ -45,9 +49,8 @@ function clampZoom(z: number): number {
   return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
 }
 
-function playZoom(viewW: number, viewH: number): number {
-  const short = Math.max(120, Math.min(viewW, viewH));
-  return clampZoom(short / PLAY_CELLS);
+function ensureCamera(doc: LevelDocument): LevelCameraSettings {
+  return { ...DEFAULT_CAMERA, ...(doc.camera ?? {}) };
 }
 
 function cellCenter(pos: { x: number; y: number }): { x: number; y: number } {
@@ -106,6 +109,12 @@ export function mountPlay(api: AppApi): {
   let raf = 0;
   let lastT = performance.now();
   let camera: Camera = { x: 0, y: 0, zoom: 48 };
+  let youFocus = 0;
+
+  const youSwitcher = document.querySelector<HTMLElement>("#you-switcher")!;
+  const youLabel = document.querySelector<HTMLElement>("#you-label")!;
+  const youPrev = document.querySelector<HTMLButtonElement>("#you-prev")!;
+  const youNext = document.querySelector<HTMLButtonElement>("#you-next")!;
 
   function progressPortals(): Record<string, { unlocked?: boolean; completed?: boolean }> {
     const progress = loadProgress();
@@ -119,9 +128,32 @@ export function mountPlay(api: AppApi): {
     return map;
   }
 
+  function youList() {
+    return session?.world.entitiesWithProperty("you") ?? [];
+  }
+
+  function activeCameraSettings(): LevelCameraSettings {
+    if (!session) return { ...DEFAULT_CAMERA };
+    const yous = youList();
+    const focus = yous[Math.min(youFocus, Math.max(0, yous.length - 1))];
+    const areaId = focus ? session.world.areaAt(focus.position) : 0;
+    return resolveCamera(session.world.camera, session.world.areaDefs, areaId);
+  }
+
+  function refreshYouSwitcher(): void {
+    const settings = activeCameraSettings();
+    const yous = youList();
+    const show = settings.mode === "follow" && yous.length > 1;
+    youSwitcher.hidden = !show;
+    if (!show) return;
+    if (youFocus >= yous.length) youFocus = 0;
+    youLabel.textContent = `${youFocus + 1}/${yous.length}`;
+  }
+
   function refreshRules(): void {
     rulesList.innerHTML = "";
-    const you = session?.world.entitiesWithProperty("you")[0];
+    const yous = youList();
+    const you = yous[Math.min(youFocus, Math.max(0, yous.length - 1))] ?? yous[0];
     const focus = you ? session!.world.areaAt(you.position) : undefined;
     for (const key of session?.world.activeFeaturesForDisplay(focus) ?? []) {
       const li = document.createElement("li");
@@ -132,8 +164,9 @@ export function mountPlay(api: AppApi): {
 
   function youCenter(): { x: number; y: number } | null {
     if (!session) return null;
-    const you = session.world.entitiesWithProperty("you")[0];
-    if (!you) return null;
+    const yous = youList();
+    if (!yous.length) return null;
+    const you = yous[Math.min(youFocus, yous.length - 1)]!;
     // Prefer lerped draw position so the camera tracks the slide.
     const anim = lerp.get(you.id as unknown as number);
     if (anim) {
@@ -148,33 +181,54 @@ export function mountPlay(api: AppApi): {
     return cellCenter(you.position);
   }
 
-  function snapToYou(): void {
+  function snapCamera(): void {
     if (!session) return;
+    const settings = activeCameraSettings();
+    const zoom = clampZoom(settings.zoom);
+    if (settings.mode === "fixed") {
+      camera = {
+        x: settings.x ?? session.world.width / 2,
+        y: settings.y ?? session.world.height / 2,
+        zoom,
+      };
+      return;
+    }
     const c = youCenter() ?? {
       x: session.world.width / 2,
       y: session.world.height / 2,
     };
-    camera = { x: c.x, y: c.y, zoom: playZoom(renderer.viewW, renderer.viewH) };
+    camera = { x: c.x, y: c.y, zoom };
   }
 
   function layout(): void {
     if (!session) return;
     const rect = boardShell.getBoundingClientRect();
     renderer.resizeViewport(Math.max(120, rect.width), Math.max(120, rect.height));
-    camera = {
-      ...camera,
-      zoom: playZoom(renderer.viewW, renderer.viewH),
-    };
+    const settings = activeCameraSettings();
+    camera = { ...camera, zoom: clampZoom(settings.zoom) };
   }
 
-  function followYou(): void {
+  function updateCamera(): void {
     if (!session) return;
+    const settings = activeCameraSettings();
+    const zoom = clampZoom(settings.zoom);
+    if (settings.mode === "fixed") {
+      camera = {
+        x: settings.x ?? session.world.width / 2,
+        y: settings.y ?? session.world.height / 2,
+        zoom,
+      };
+      return;
+    }
     const c = youCenter();
-    if (!c) return;
+    if (!c) {
+      camera = { ...camera, zoom };
+      return;
+    }
     camera = {
       x: camera.x + (c.x - camera.x) * FOLLOW,
       y: camera.y + (c.y - camera.y) * FOLLOW,
-      zoom: playZoom(renderer.viewW, renderer.viewH),
+      zoom,
     };
   }
 
@@ -186,7 +240,8 @@ export function mountPlay(api: AppApi): {
     const dt = Math.min(0.05, (now - lastT) / 1000);
     lastT = now;
     renderer.particles.update(dt);
-    followYou();
+    refreshYouSwitcher();
+    updateCamera();
     renderer.draw(session.world, {
       t: now / 1000,
       lerp,
@@ -297,18 +352,31 @@ export function mountPlay(api: AppApi): {
     const progress = loadProgress();
     if (doc.isOverworld && progress.overworldPos) {
       const you = world.entitiesWithProperty("you")[0];
-      if (you && world.grid.inBounds(progress.overworldPos)) {
-        world.moveEntity(you.id, progress.overworldPos);
+      const pos = progress.overworldPos;
+      if (you && world.grid.inBounds(pos)) {
+        // Ignore stale saves from older overworld layouts (would land inside walls).
+        const blocked = world.entities
+          .all()
+          .some(
+            (e) =>
+              e.alive &&
+              e.position.x === pos.x &&
+              e.position.y === pos.y &&
+              world.hasProperty(e, "stop"),
+          );
+        if (!blocked) world.moveEntity(you.id, pos);
       }
     }
     session = new Session(world);
+    youFocus = 0;
     levelName.textContent = doc.name;
     statusEl.textContent = "";
     setMenuOpen(false);
     refreshRules();
+    refreshYouSwitcher();
     api.showScreen("play");
     layout();
-    snapToYou();
+    snapCamera();
     // Paint immediately so the first frame isn't a blank shell while rAF catches up.
     renderer.draw(session.world, {
       t: performance.now() / 1000,
@@ -321,7 +389,7 @@ export function mountPlay(api: AppApi): {
     });
     requestAnimationFrame(() => {
       layout();
-      snapToYou();
+      snapCamera();
     });
   }
 
@@ -332,11 +400,28 @@ export function mountPlay(api: AppApi): {
     const action = btn.dataset.menuAction;
     setMenuOpen(false);
     if (action === "restart") dispatch({ type: "restart" });
-    if (action === "recenter") snapToYou();
+    if (action === "recenter") snapCamera();
     if (action === "exit") {
       if (fromEditor) api.showScreen("editor");
       else api.showScreen("menu");
     }
+  });
+
+  youPrev.addEventListener("click", () => {
+    const n = youList().length;
+    if (n < 2) return;
+    youFocus = (youFocus - 1 + n) % n;
+    refreshYouSwitcher();
+    refreshRules();
+    snapCamera();
+  });
+  youNext.addEventListener("click", () => {
+    const n = youList().length;
+    if (n < 2) return;
+    youFocus = (youFocus + 1) % n;
+    refreshYouSwitcher();
+    refreshRules();
+    snapCamera();
   });
 
   controls = bindControls((intent) => dispatch(intent), {
@@ -407,6 +492,13 @@ function growDense(doc: DenseDoc, dir: GrowDir): void {
   if (doc.spawn) {
     doc.spawn = { x: doc.spawn.x + ox, y: doc.spawn.y + oy };
   }
+  if (doc.camera?.mode === "fixed") {
+    doc.camera = {
+      ...doc.camera,
+      x: (doc.camera.x ?? 0) + ox,
+      y: (doc.camera.y ?? 0) + oy,
+    };
+  }
 }
 
 function entitiesFromWorld(world: World): LevelEntitySpec[] {
@@ -463,6 +555,7 @@ function toDenseWorkingDoc(src: LevelDocument): DenseDoc {
       y: src.spawn.y - world.originY,
     };
   }
+  dense.camera = ensureCamera(src.camera ? src : { ...src, camera: world.camera });
   return dense;
 }
 
@@ -479,6 +572,13 @@ export function mountEditor(api: AppApi): {
   const areasEl = document.querySelector<HTMLElement>("#areas-editor")!;
   const toolsBtn = document.querySelector<HTMLButtonElement>("#btn-editor-tools")!;
   const toolbar = document.querySelector<HTMLElement>("#editor-toolbar")!;
+  const camMode = document.querySelector<HTMLSelectElement>("#cam-mode")!;
+  const camZoom = document.querySelector<HTMLInputElement>("#cam-zoom")!;
+  const camZoomVal = document.querySelector<HTMLElement>("#cam-zoom-val")!;
+  const camFixedFields = document.querySelector<HTMLElement>("#cam-fixed-fields")!;
+  const camX = document.querySelector<HTMLInputElement>("#cam-x")!;
+  const camY = document.querySelector<HTMLInputElement>("#cam-y")!;
+  const camCenterMap = document.querySelector<HTMLButtonElement>("#cam-center-map")!;
 
   const renderer = new CanvasRenderer(canvas);
   const lexicon = createDefaultLexicon();
@@ -534,6 +634,48 @@ export function mountEditor(api: AppApi): {
     }
   }
 
+  function cameraPreviewCenter(): { x: number; y: number } {
+    const settings = ensureCamera(doc);
+    if (settings.mode === "fixed") {
+      return {
+        x: settings.x ?? doc.width / 2,
+        y: settings.y ?? doc.height / 2,
+      };
+    }
+    const you = doc.entities.find((e) => e.kind === "object" && e.id === "baba");
+    if (you) return cellCenter(you);
+    if (doc.spawn) return cellCenter(doc.spawn);
+    return { x: doc.width / 2, y: doc.height / 2 };
+  }
+
+  function syncCameraForm(): void {
+    const settings = ensureCamera(doc);
+    doc.camera = settings;
+    camMode.value = settings.mode;
+    camZoom.value = String(Math.round(settings.zoom));
+    camZoomVal.textContent = String(Math.round(settings.zoom));
+    camFixedFields.hidden = settings.mode !== "fixed";
+    const cx = settings.x ?? doc.width / 2;
+    const cy = settings.y ?? doc.height / 2;
+    camX.value = String(cx);
+    camY.value = String(cy);
+  }
+
+  function readCameraForm(): void {
+    const mode = camMode.value === "fixed" ? "fixed" : "follow";
+    const zoom = clampZoom(Number(camZoom.value) || DEFAULT_CAMERA.zoom);
+    const next: LevelCameraSettings = { mode, zoom };
+    if (mode === "fixed") {
+      next.x = Number(camX.value);
+      next.y = Number(camY.value);
+      if (Number.isNaN(next.x)) next.x = doc.width / 2;
+      if (Number.isNaN(next.y)) next.y = doc.height / 2;
+    }
+    doc.camera = next;
+    camZoomVal.textContent = String(Math.round(zoom));
+    camFixedFields.hidden = mode !== "fixed";
+  }
+
   function redraw(): void {
     const world = worldFromDoc();
     const rect = boardShell.getBoundingClientRect();
@@ -541,11 +683,21 @@ export function mountEditor(api: AppApi): {
     if (!userPan && camera.zoom <= 0) {
       camera = renderer.cameraFitWorld(world);
     }
+    const settings = ensureCamera(doc);
+    const previewCenter = cameraPreviewCenter();
     const drawOpts: Parameters<CanvasRenderer["draw"]>[1] = {
       showAreas: layer === "areas",
       areaDefs: doc.areas,
       t: performance.now() / 1000,
       camera,
+      cameraPreview: {
+        cx: previewCenter.x,
+        cy: previewCenter.y,
+        zoom: clampZoom(settings.zoom),
+        viewW: PREVIEW_VIEW_W,
+        viewH: PREVIEW_VIEW_H,
+        mode: settings.mode,
+      },
     };
     if (doc.portals) drawOpts.portals = doc.portals;
     renderer.draw(world, drawOpts);
@@ -790,9 +942,11 @@ export function mountEditor(api: AppApi): {
     }
     selectedArea = doc.areas[0]?.id ?? 1;
     userPan = false;
+    if (!doc.camera) doc.camera = { ...DEFAULT_CAMERA };
     buildDrawer();
     renderGlobals();
     renderAreas();
+    syncCameraForm();
     api.showScreen("editor");
     requestAnimationFrame(() => {
       layoutAndFit(true);
@@ -919,8 +1073,24 @@ export function mountEditor(api: AppApi): {
     buildDrawer();
   });
 
+  const onCamChange = () => {
+    readCameraForm();
+    redraw();
+  };
+  camMode.addEventListener("change", onCamChange);
+  camZoom.addEventListener("input", onCamChange);
+  camX.addEventListener("change", onCamChange);
+  camY.addEventListener("change", onCamChange);
+  camCenterMap.addEventListener("click", () => {
+    camX.value = String(doc.width / 2);
+    camY.value = String(doc.height / 2);
+    readCameraForm();
+    redraw();
+  });
+
   document.querySelector("[data-action='editor-save']")?.addEventListener("click", () => {
     doc.name = nameInput.value.trim() || "Untitled";
+    readCameraForm();
     if (!doc.id.startsWith("custom-")) doc.id = `custom-${Date.now()}`;
     saveCustomLevel(migrateDenseToChunks(doc));
     statusToast("Saved");
@@ -928,6 +1098,7 @@ export function mountEditor(api: AppApi): {
 
   document.querySelector("[data-action='editor-test']")?.addEventListener("click", () => {
     doc.name = nameInput.value.trim() || doc.name;
+    readCameraForm();
     api.openLevel(migrateDenseToChunks(doc), { fromEditor: true });
   });
 

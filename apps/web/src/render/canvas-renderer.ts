@@ -46,6 +46,18 @@ export type DrawOptions = {
   areaDefs?: AreaDef[];
   portals?: NonNullable<LevelDocument["portals"]>;
   progressPortals?: Record<string, PortalProgress>;
+  /**
+   * Editor: draw the play-camera frustum in world space.
+   * `cx,cy` = world center; `zoom` = CSS px/cell; `viewW/viewH` = play viewport CSS px.
+   */
+  cameraPreview?: {
+    cx: number;
+    cy: number;
+    zoom: number;
+    viewW: number;
+    viewH: number;
+    mode: "follow" | "fixed";
+  };
 };
 
 export interface RenderOptions {
@@ -205,6 +217,50 @@ export class CanvasRenderer {
       x: cam.x * cs - this._viewW / 2,
       y: cam.y * cs - this._viewH / 2,
     });
+
+    if (opts.cameraPreview) {
+      this.drawCameraPreview(opts.cameraPreview, cam);
+    }
+  }
+
+  private drawCameraPreview(
+    preview: NonNullable<DrawOptions["cameraPreview"]>,
+    viewCam: Camera,
+  ): void {
+    const ctx = this.ctx;
+    const halfW = preview.viewW / preview.zoom / 2;
+    const halfH = preview.viewH / preview.zoom / 2;
+    const x0 = preview.cx - halfW;
+    const y0 = preview.cy - halfH;
+    const x1 = preview.cx + halfW;
+    const y1 = preview.cy + halfH;
+    const a = this.worldToScreen(x0, y0, viewCam);
+    const b = this.worldToScreen(x1, y1, viewCam);
+    const left = Math.min(a.sx, b.sx);
+    const top = Math.min(a.sy, b.sy);
+    const w = Math.abs(b.sx - a.sx);
+    const h = Math.abs(b.sy - a.sy);
+
+    ctx.save();
+    ctx.strokeStyle = preview.mode === "fixed" ? "#ffb454" : "#7ad0ff";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(left, top, w, h);
+    ctx.setLineDash([]);
+    // Crosshair at camera center
+    const c = this.worldToScreen(preview.cx, preview.cy, viewCam);
+    const arm = Math.max(6, preview.zoom * 0.2);
+    ctx.beginPath();
+    ctx.moveTo(c.sx - arm, c.sy);
+    ctx.lineTo(c.sx + arm, c.sy);
+    ctx.moveTo(c.sx, c.sy - arm);
+    ctx.lineTo(c.sx, c.sy + arm);
+    ctx.stroke();
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.globalAlpha = 0.85;
+    ctx.font = `600 ${Math.max(10, Math.min(14, preview.zoom * 0.28))}px "IBM Plex Sans", sans-serif`;
+    ctx.fillText(preview.mode === "fixed" ? "cam fixed" : "cam follow", left + 6, top + 14);
+    ctx.restore();
   }
 
   private drawAreaFills(

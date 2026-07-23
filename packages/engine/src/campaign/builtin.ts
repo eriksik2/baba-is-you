@@ -118,21 +118,44 @@ export function createBlankLevel(
     areaMap: emptyAreaMap(w, h),
     background: fill(w, h, BG.grass),
     entities: [],
+    camera: { mode: "follow", zoom: 48 },
   };
 }
 
 // ---------------------------------------------------------------------------
-// Linear overworld — I → II → III → IV, with ? spur at III
+// Linear overworld — tight 1-cell corridor I → II → III → IV, ? spur south
+// Authored as one 16×16 chunk so dense→chunk padding cannot open void.
 // ---------------------------------------------------------------------------
 
-const OW_W = 22;
-const OW_H = 9;
+const OW_W = 16;
+const OW_H = 16;
+/** Corridor row. */
+const OW_Y = 7;
+
+function overworldWalls(): LevelEntitySpec[] {
+  const walk = new Set<string>();
+  for (let x = 1; x <= 14; x++) walk.add(`${x},${OW_Y}`);
+  // Spur down to special portal
+  walk.add(`9,8`);
+  walk.add(`9,9`);
+  walk.add(`9,10`);
+  walk.add(`9,11`);
+  const out: LevelEntitySpec[] = [];
+  for (let y = 0; y < OW_H; y++) {
+    for (let x = 0; x < OW_W; x++) {
+      if (walk.has(`${x},${y}`)) continue;
+      out.push(obj("wall", x, y));
+    }
+  }
+  return out;
+}
 
 export const OVERWORLD: LevelDocument = {
   id: "overworld",
   name: "The Path",
   width: OW_W,
   height: OW_H,
+  chunkSize: DEFAULT_CHUNK_SIZE,
   globalRules: [
     { subject: "baba", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
@@ -140,47 +163,37 @@ export const OVERWORLD: LevelDocument = {
   areas: [],
   areaMap: emptyAreaMap(OW_W, OW_H),
   background: (() => {
-    const bg = fill(OW_W, OW_H, BG.grass);
-    stamp(bg, OW_W, { x: 1, y: 3, w: 20, h: 3 }, BG.path);
-    stamp(bg, OW_W, { x: 12, y: 6, w: 1, h: 2 }, BG.path);
-    stamp(bg, OW_W, { x: 11, y: 7, w: 3, h: 1 }, BG.path);
+    const bg = fill(OW_W, OW_H, BG.bush);
+    stamp(bg, OW_W, { x: 1, y: OW_Y, w: 14, h: 1 }, BG.path);
+    stamp(bg, OW_W, { x: 9, y: 8, w: 1, h: 4 }, BG.path);
     return bg;
   })(),
-  entities: [
-    ...perimeter(OW_W, OW_H),
-    ...wallRect(1, 1, 20, 2),
-    ...wallRect(1, 6, 11, 6),
-    ...wallRect(13, 6, 20, 6),
-    ...wallRect(1, 7, 10, 7),
-    ...wallRect(14, 7, 20, 7),
-    obj("wall", 11, 6),
-    obj("wall", 13, 6),
-    obj("baba", 2, 4),
-  ],
+  entities: [...overworldWalls(), obj("baba", 2, OW_Y)],
   isOverworld: true,
-  spawn: { x: 2, y: 4 },
+  spawn: { x: 2, y: OW_Y },
+  camera: { mode: "follow", zoom: 56 },
   portals: [
-    { id: "p1", x: 5, y: 4, targetLevelId: "level-1", label: "I" },
+    { id: "p1", x: 4, y: OW_Y, targetLevelId: "level-1", label: "I" },
     {
       id: "p2",
-      x: 9,
-      y: 4,
+      x: 6,
+      y: OW_Y,
       targetLevelId: "level-2",
       requires: "level-1",
       label: "II",
     },
     {
       id: "p3",
-      x: 13,
-      y: 4,
+      x: 9,
+      y: OW_Y,
       targetLevelId: "level-3",
       requires: "level-2",
       label: "III",
     },
     {
       id: "p-special",
-      x: 12,
-      y: 7,
+      x: 9,
+      y: 11,
       targetLevelId: "level-special",
       requires: "level-2",
       label: "?",
@@ -188,8 +201,8 @@ export const OVERWORLD: LevelDocument = {
     },
     {
       id: "p4",
-      x: 18,
-      y: 4,
+      x: 12,
+      y: OW_Y,
       targetLevelId: "level-4",
       requires: "level-3",
       label: "IV",
@@ -214,6 +227,7 @@ export const LEVEL_1: LevelDocument = {
     stamp(bg, 12, { x: 1, y: 1, w: 10, h: 7 }, BG.path);
     return bg;
   })(),
+  camera: { mode: "follow", zoom: 52 },
   portals: [exitAt(10, 4)],
   entities: [
     ...perimeter(12, 9),
@@ -253,6 +267,7 @@ export const LEVEL_2: LevelDocument = {
     stamp(bg, 13, { x: 6, y: 2, w: 1, h: 4 }, BG.dirt);
     return bg;
   })(),
+  camera: { mode: "follow", zoom: 52 },
   portals: [exitAt(11, 3)],
   entities: [
     ...perimeter(13, 9),
@@ -295,6 +310,7 @@ export const LEVEL_3: LevelDocument = {
     stamp(bg, 13, { x: 5, y: 4, w: 2, h: 2 }, BG.dirt);
     return bg;
   })(),
+  camera: { mode: "follow", zoom: 52 },
   portals: [exitAt(11, 3)],
   entities: [
     ...perimeter(13, 9),
@@ -340,6 +356,7 @@ export const LEVEL_4: LevelDocument = {
     stamp(bg, 15, { x: 1, y: 4, w: 13, h: 1 }, BG.path);
     return bg;
   })(),
+  camera: { mode: "follow", zoom: 48 },
   portals: [exitAt(13, 4)],
   entities: [
     ...perimeter(15, 10),
@@ -391,6 +408,7 @@ export const LEVEL_SPECIAL: LevelDocument = {
     stamp(bg, 15, { x: 1, y: 4, w: 13, h: 1 }, BG.path);
     return bg;
   })(),
+  camera: { mode: "follow", zoom: 48 },
   portals: [exitAt(13, 4)],
   entities: [
     ...perimeter(15, 10),

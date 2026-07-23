@@ -15,7 +15,26 @@ export interface AreaDef {
   id: number;
   name: string;
   color: string;
+  /** Optional camera override while YOU stands in this area. */
+  camera?: LevelCameraSettings;
 }
+
+export type CameraMode = "follow" | "fixed";
+
+/** Per-level (or per-area) play camera. */
+export interface LevelCameraSettings {
+  mode: CameraMode;
+  /** CSS pixels per cell. */
+  zoom: number;
+  /** Fixed mode: world-space center (cell units). */
+  x?: number;
+  y?: number;
+}
+
+export const DEFAULT_CAMERA: LevelCameraSettings = {
+  mode: "follow",
+  zoom: 48,
+};
 
 export interface LevelEntitySpec {
   kind: "object" | "text";
@@ -60,6 +79,8 @@ export interface LevelDocument {
   isOverworld?: boolean;
   portals?: LevelPortal[];
   spawn?: Vec2;
+  /** Play camera for this level (areas may override). */
+  camera?: LevelCameraSettings;
   /** @deprecated Dense authoring helpers — converted to chunks on load. */
   width?: number;
   height?: number;
