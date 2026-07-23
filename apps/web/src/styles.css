@@ -408,14 +408,6 @@ body {
   height: 100%;
 }
 
-.undo-fab {
-  width: 72px;
-  min-height: 72px;
-  border-radius: 18px;
-  align-self: end;
-  margin-bottom: 0.35rem;
-}
-
 .dpad {
   display: grid;
   grid-template-areas:
@@ -424,11 +416,19 @@ body {
     ". down .";
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: 1fr 1fr 1fr;
-  gap: 0.35rem;
-  width: min(58vw, 220px);
+  gap: 0.3rem;
+  width: min(48vw, 180px);
   aspect-ratio: 1;
   justify-self: end;
   margin-right: 0.15rem;
+}
+
+.undo-fab {
+  width: 64px;
+  min-height: 64px;
+  border-radius: 16px;
+  align-self: end;
+  margin-bottom: 0.25rem;
 }
 
 .btn {

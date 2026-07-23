@@ -120,17 +120,17 @@ const OVERWORLD_AREAS: AreaDef[] = [
   {
     id: AREA_GARDEN,
     name: "Garden Gate",
-    color: "rgba(80, 160, 90, 0.35)",
+    color: "rgba(72, 180, 96, 0.35)",
   },
   {
     id: AREA_ROCK,
     name: "Rock Yard",
-    color: "rgba(160, 120, 70, 0.35)",
+    color: "rgba(210, 140, 55, 0.35)",
   },
   {
     id: AREA_HOLLOW,
     name: "Secret Hollow",
-    color: "rgba(90, 70, 140, 0.40)",
+    color: "rgba(140, 100, 220, 0.40)",
   },
 ];
 
@@ -148,7 +148,7 @@ const HOLLOW_RECT: Rect = { x: 8, y: 10, w: 8, h: 5 };
 function buildOverworldBackground(): string[] {
   const bg = fill(OW_W, OW_H, BG.grass);
 
-  // Checker accents
+  // Soft checker accents (calm procedural grass2)
   for (let y = 0; y < OW_H; y++) {
     for (let x = 0; x < OW_W; x++) {
       if ((x + y) % 5 === 0) {
@@ -162,20 +162,19 @@ function buildOverworldBackground(): string[] {
   stamp(bg, OW_W, { x: 20, y: 12, w: 2, h: 2 }, BG.flower);
 
   // Connecting paths between areas
-  stamp(bg, OW_W, { x: 4, y: 7, w: 2, h: 3 }, BG.path); // garden → south
-  stamp(bg, OW_W, { x: 4, y: 9, w: 8, h: 1 }, BG.path); // horizontal to hollow
-  stamp(bg, OW_W, { x: 11, y: 8, w: 1, h: 2 }, BG.path); // into hollow
-  stamp(bg, OW_W, { x: 8, y: 4, w: 7, h: 1 }, BG.path); // garden ↔ rock
-  stamp(bg, OW_W, { x: 18, y: 8, w: 2, h: 2 }, BG.path); // rock → south
+  stamp(bg, OW_W, { x: 4, y: 7, w: 2, h: 3 }, BG.path);
+  stamp(bg, OW_W, { x: 4, y: 9, w: 8, h: 1 }, BG.path);
+  stamp(bg, OW_W, { x: 11, y: 8, w: 1, h: 2 }, BG.path);
+  stamp(bg, OW_W, { x: 8, y: 4, w: 7, h: 1 }, BG.path);
+  stamp(bg, OW_W, { x: 18, y: 8, w: 2, h: 2 }, BG.path);
 
-  // Area floors
+  // Area floors — calm tints, not busy atlas art
   stamp(bg, OW_W, GARDEN_RECT, BG.dirt);
   stamp(bg, OW_W, { x: 2, y: 2, w: 5, h: 4 }, BG.path);
   stamp(bg, OW_W, ROCK_RECT, BG.stone);
   stamp(bg, OW_W, HOLLOW_RECT, BG.bush);
   stamp(bg, OW_W, { x: 9, y: 11, w: 6, h: 3 }, BG.dirt);
 
-  // Decorative water pond (non-area)
   stamp(bg, OW_W, { x: 1, y: 12, w: 4, h: 3 }, BG.water);
 
   return bg;
@@ -334,7 +333,7 @@ export const OVERWORLD: LevelDocument = {
 // Puzzle levels (classic-ish, no rule areas)
 // ---------------------------------------------------------------------------
 
-/** Intro: BABA IS YOU (global) + form FLAG IS WIN; WALL IS STOP on board. */
+/** Intro: exit the chamber, walk to the flag (FLAG IS WIN already formed). */
 export const LEVEL_1: LevelDocument = {
   id: "level-1",
   name: "Where Do I Go?",
@@ -345,24 +344,21 @@ export const LEVEL_1: LevelDocument = {
   areaMap: emptyAreaMap(12, 9),
   background: (() => {
     const bg = fill(12, 9, BG.grass);
-    stamp(bg, 12, { x: 0, y: 0, w: 12, h: 9 }, BG.dirt);
     stamp(bg, 12, { x: 2, y: 2, w: 8, h: 5 }, BG.path);
     return bg;
   })(),
   entities: [
-    // WALL IS STOP (fixed along left)
-    txt("wall", 1, 1),
-    txt("is", 2, 1),
-    txt("stop", 3, 1),
+    // WALL IS STOP along the top (out of the walking path)
+    txt("wall", 1, 0),
+    txt("is", 2, 0),
+    txt("stop", 3, 0),
 
-    // Chamber walls
+    // Chamber with an open doorway on the east (x=5, y=4–5)
     obj("wall", 1, 3),
     obj("wall", 2, 3),
     obj("wall", 3, 3),
     obj("wall", 4, 3),
     obj("wall", 5, 3),
-    obj("wall", 5, 4),
-    obj("wall", 5, 5),
     obj("wall", 5, 6),
     obj("wall", 4, 6),
     obj("wall", 3, 6),
@@ -373,10 +369,10 @@ export const LEVEL_1: LevelDocument = {
 
     obj("baba", 3, 4),
 
-    // FLAG IS WIN pieces to assemble / already almost formed
-    txt("flag", 7, 2),
-    txt("is", 8, 2),
-    txt("win", 9, 3),
+    // FLAG IS WIN already formed on the bottom row — walk the mid path to the flag
+    txt("flag", 7, 8),
+    txt("is", 8, 8),
+    txt("win", 9, 8),
     obj("flag", 9, 5),
   ],
 };
@@ -394,7 +390,7 @@ export const LEVEL_2: LevelDocument = {
   areas: [],
   areaMap: emptyAreaMap(14, 10),
   background: (() => {
-    const bg = fill(14, 10, BG.stone);
+    const bg = fill(14, 10, BG.grass);
     stamp(bg, 14, { x: 1, y: 1, w: 12, h: 8 }, BG.dirt);
     stamp(bg, 14, { x: 3, y: 3, w: 8, h: 4 }, BG.path);
     return bg;

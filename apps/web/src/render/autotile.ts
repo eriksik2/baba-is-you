@@ -12,33 +12,30 @@ export interface WorldLike {
   bgAt(pos: { x: number; y: number }): string;
 }
 
-/** Pastoral sample cells (col, row) for base fills / overlays. */
-const TILE_BASE: Record<string, { col: number; row: number }> = {
-  grass: { col: 4, row: 0 },
-  grass2: { col: 4, row: 0 },
-  path: { col: 2, row: 2 },
-  water: { col: 3, row: 0 },
-  dirt: { col: 1, row: 4 },
-  stone: { col: 5, row: 5 },
-  flower: { col: 4, row: 0 },
-  bush: { col: 4, row: 0 },
+/**
+ * Calm flat ground colors — no atlas sampling.
+ * The pastoral sheet is a busy village/roof set; tiling it as floor reads as noise.
+ */
+const FILL: Record<string, string> = {
+  grass: "#5f7d4a",
+  grass2: "#567244",
+  path: "#c4a882",
+  water: "#3a6f8f",
+  dirt: "#8a6e4a",
+  stone: "#6e7680",
+  flower: "#5f7d4a",
+  bush: "#4d6a40",
 };
 
-const TILE_OVERLAY: Record<string, { col: number; row: number }> = {
-  flower: { col: 0, row: 7 },
-  bush: { col: 2, row: 7 },
-};
-
-/** Fallback flat colors when the atlas image is missing. */
-const FALLBACK: Record<string, string> = {
-  grass: "#6a8f4e",
-  grass2: "#5f8446",
-  path: "#c4a574",
-  water: "#3d7ea6",
-  dirt: "#8b6b45",
-  stone: "#7a8490",
-  flower: "#6a8f4e",
-  bush: "#6a8f4e",
+const ACCENT: Record<string, string> = {
+  grass: "rgba(255,255,255,0.04)",
+  grass2: "rgba(0,0,0,0.05)",
+  path: "rgba(255,240,200,0.06)",
+  water: "rgba(180,220,255,0.08)",
+  dirt: "rgba(40,24,8,0.06)",
+  stone: "rgba(255,255,255,0.05)",
+  flower: "rgba(255,255,255,0.04)",
+  bush: "rgba(0,0,0,0.06)",
 };
 
 export function neighborMask(
@@ -55,15 +52,10 @@ export function neighborMask(
   return mask;
 }
 
-function drawFallback(
-  ctx: CanvasRenderingContext2D,
-  tile: string,
-  dx: number,
-  dy: number,
-  s: number,
-): void {
-  ctx.fillStyle = FALLBACK[tile] ?? "#4a5a4a";
-  ctx.fillRect(dx, dy, s, s);
+function hash2(x: number, y: number): number {
+  let n = x * 374761393 + y * 668265263;
+  n = (n ^ (n >>> 13)) * 1274126177;
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
 }
 
 function edgeShade(
@@ -75,9 +67,8 @@ function edgeShade(
   dark: string,
   light: string,
 ): void {
-  const t = Math.max(1.5, s * 0.1);
+  const t = Math.max(1.25, s * 0.07);
   ctx.save();
-  // Missing neighbor → draw an inset edge so blobs look connected / carved.
   if ((mask & MASK_N) === 0) {
     ctx.fillStyle = light;
     ctx.fillRect(dx, dy, s, t);
@@ -97,6 +88,60 @@ function edgeShade(
   ctx.restore();
 }
 
+function softSpeckle(
+  ctx: CanvasRenderingContext2D,
+  tile: string,
+  dx: number,
+  dy: number,
+  s: number,
+  cellX: number,
+  cellY: number,
+): void {
+  const accent = ACCENT[tile] ?? "rgba(255,255,255,0.04)";
+  ctx.fillStyle = accent;
+  // A few soft dots — variation without zigzag noise.
+  for (let i = 0; i < 3; i++) {
+    const u = hash2(cellX * 3 + i, cellY * 5 + i);
+    const v = hash2(cellY * 7 + i, cellX * 11 + i);
+    const r = s * (0.04 + u * 0.05);
+    ctx.beginPath();
+    ctx.arc(dx + s * (0.2 + v * 0.6), dy + s * (0.2 + u * 0.6), r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function flowerDots(
+  ctx: CanvasRenderingContext2D,
+  dx: number,
+  dy: number,
+  s: number,
+  cellX: number,
+  cellY: number,
+): void {
+  const n = 2 + Math.floor(hash2(cellX, cellY) * 2);
+  for (let i = 0; i < n; i++) {
+    const u = hash2(cellX + i * 17, cellY + i * 13);
+    const v = hash2(cellY + i * 9, cellX + i * 23);
+    const x = dx + s * (0.25 + u * 0.5);
+    const y = dy + s * (0.25 + v * 0.5);
+    ctx.fillStyle = i % 2 === 0 ? "#d4a0c0" : "#e8d080";
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(1.2, s * 0.06), 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function bushTuft(ctx: CanvasRenderingContext2D, dx: number, dy: number, s: number): void {
+  ctx.fillStyle = "rgba(30, 50, 24, 0.35)";
+  ctx.beginPath();
+  ctx.ellipse(dx + s * 0.5, dy + s * 0.58, s * 0.28, s * 0.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(70, 110, 55, 0.45)";
+  ctx.beginPath();
+  ctx.ellipse(dx + s * 0.5, dy + s * 0.48, s * 0.22, s * 0.18, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function waterShimmer(
   ctx: CanvasRenderingContext2D,
   dx: number,
@@ -104,71 +149,51 @@ function waterShimmer(
   s: number,
   phase: number,
 ): void {
-  const wave = (Math.sin(phase * 2.2 + dx * 0.05 + dy * 0.03) + 1) * 0.5;
-  const band = (Math.sin(phase * 1.4 + dy * 0.08 - dx * 0.04) + 1) * 0.5;
+  const wave = (Math.sin(phase * 1.6 + dx * 0.04 + dy * 0.03) + 1) * 0.5;
   ctx.save();
-  ctx.globalAlpha = 0.12 + wave * 0.18;
+  ctx.globalAlpha = 0.1 + wave * 0.12;
   ctx.fillStyle = "#c8ecff";
-  const h = Math.max(2, s * (0.12 + band * 0.18));
-  const y = dy + s * (0.2 + wave * 0.45);
-  ctx.fillRect(dx + s * 0.1, y, s * 0.8, h);
-  ctx.globalAlpha = 0.08 + band * 0.1;
-  ctx.fillStyle = "#1a4060";
-  ctx.fillRect(dx + s * 0.15, dy + s * (0.55 + wave * 0.2), s * 0.7, Math.max(1.5, s * 0.08));
+  const h = Math.max(1.5, s * (0.08 + wave * 0.1));
+  ctx.fillRect(dx + s * 0.15, dy + s * (0.3 + wave * 0.35), s * 0.7, h);
   ctx.restore();
 }
 
 /**
- * Draw a background autotile: sample pastoral base, optional overlay,
- * procedural neighbor edges, and water shimmer from `phase`.
+ * Calm procedural ground tile. Atlas is unused for floors (kept in signature
+ * for call-site compatibility).
  */
 export function drawAutotile(
   ctx: CanvasRenderingContext2D,
-  atlas: AssetAtlas,
+  _atlas: AssetAtlas,
   tile: string,
   mask: number,
   dx: number,
   dy: number,
   s: number,
   phase: number,
+  cellX = 0,
+  cellY = 0,
 ): void {
-  // Always paint a solid underlay — pastoral cells often sit on transparency.
-  drawFallback(ctx, tile, dx, dy, s);
+  ctx.fillStyle = FILL[tile] ?? "#4a5a4a";
+  ctx.fillRect(dx, dy, s, s);
 
-  const base = TILE_BASE[tile] ?? TILE_BASE.grass!;
-  const hasAtlas = atlas.pastoral !== null && atlas.pastoral.complete && atlas.pastoral.naturalWidth > 0;
+  softSpeckle(ctx, tile, dx, dy, s, cellX, cellY);
 
-  if (hasAtlas) {
-    atlas.drawPastoral(ctx, base.col, base.row, dx, dy, s);
-    if (tile === "grass2") {
-      ctx.fillStyle = "rgba(40, 70, 20, 0.18)";
-      ctx.fillRect(dx, dy, s, s);
-    }
-  }
-
-  const overlay = TILE_OVERLAY[tile];
-  if (overlay && hasAtlas) {
-    const inset = s * 0.08;
-    atlas.drawPastoral(ctx, overlay.col, overlay.row, dx + inset, dy + inset, s - inset * 2);
-  } else if (overlay && !hasAtlas) {
-    ctx.fillStyle = tile === "flower" ? "#c45a9a" : "#3d6b35";
-    ctx.beginPath();
-    ctx.ellipse(dx + s / 2, dy + s / 2, s * 0.22, s * 0.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  if (tile === "flower") flowerDots(ctx, dx, dy, s, cellX, cellY);
+  if (tile === "bush") bushTuft(ctx, dx, dy, s);
 
   const edgeDark =
     tile === "water"
-      ? "rgba(10, 40, 70, 0.35)"
+      ? "rgba(10, 40, 70, 0.28)"
       : tile === "path" || tile === "dirt"
-        ? "rgba(80, 50, 20, 0.28)"
-        : "rgba(20, 40, 15, 0.25)";
+        ? "rgba(60, 40, 16, 0.2)"
+        : "rgba(20, 36, 14, 0.18)";
   const edgeLight =
     tile === "water"
-      ? "rgba(180, 220, 255, 0.22)"
+      ? "rgba(180, 220, 255, 0.16)"
       : tile === "path" || tile === "dirt"
-        ? "rgba(255, 230, 180, 0.22)"
-        : "rgba(200, 230, 160, 0.2)";
+        ? "rgba(255, 236, 200, 0.14)"
+        : "rgba(210, 230, 180, 0.12)";
 
   edgeShade(ctx, mask, dx, dy, s, edgeDark, edgeLight);
 

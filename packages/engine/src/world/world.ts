@@ -201,16 +201,51 @@ export class World {
     return this.entities.filter((e) => e.alive && this.hasProperty(e, prop));
   }
 
-  activeFeaturesForDisplay(): string[] {
-    const keys = new Set<string>();
+  /**
+   * Rules shown in the HUD.
+   * Always includes globals; local area rules only for `focusAreaId` when set
+   * (player's current cell), so the overworld doesn't dump every area at once.
+   */
+  activeFeaturesForDisplay(focusAreaId?: number): string[] {
+    const keys: string[] = [];
+    const seen = new Set<string>();
+    const add = (key: string, label?: string) => {
+      if (key === "text is push") return;
+      const shown = label ? `${label}: ${key}` : key;
+      if (seen.has(shown)) return;
+      seen.add(shown);
+      keys.push(shown);
+    };
+
     for (const f of this.globalRules.features) {
-      if (f.key === "text is push") continue;
-      keys.add(f.key);
+      add(f.key);
     }
-    for (const rs of this.rulesByArea.values()) {
-      for (const f of rs.features) keys.add(f.key);
+
+    if (focusAreaId !== undefined) {
+      if (focusAreaId !== 0) {
+        const def = this.areaDefs.find((a) => a.id === focusAreaId);
+        const local = this.rulesByArea.get(focusAreaId);
+        if (local) {
+          for (const f of local.features) {
+            add(f.key, def?.name ?? `Area ${focusAreaId}`);
+          }
+        }
+      } else {
+        // Texts sitting outside areas still form rules tagged area 0.
+        const open = this.rulesByArea.get(0);
+        if (open) {
+          for (const f of open.features) add(f.key);
+        }
+      }
+    } else {
+      for (const [areaId, rs] of this.rulesByArea) {
+        const def = this.areaDefs.find((a) => a.id === areaId);
+        const prefix =
+          areaId === 0 ? undefined : (def?.name ?? `Area ${areaId}`);
+        for (const f of rs.features) add(f.key, prefix);
+      }
     }
-    return [...keys];
+    return keys;
   }
 
   clone(): World {

@@ -28,8 +28,8 @@ import {
 
 const LERP_MS = 110;
 const FOLLOW = 0.22;
-/** Play shows ~8–9 cells across the short axis — closer than fit-to-world. */
-const PLAY_CELLS = 8.5;
+/** Play shows ~7 cells on the short axis — readable tiles on phones. */
+const PLAY_CELLS = 7;
 const ZOOM_MIN = 14;
 const ZOOM_MAX = 96;
 const ZOOM_STEP = 1.2;
@@ -121,7 +121,9 @@ export function mountPlay(api: AppApi): {
 
   function refreshRules(): void {
     rulesList.innerHTML = "";
-    for (const key of session?.world.activeFeaturesForDisplay() ?? []) {
+    const you = session?.world.entitiesWithProperty("you")[0];
+    const focus = you ? session!.world.areaAt(you.position) : undefined;
+    for (const key of session?.world.activeFeaturesForDisplay(focus) ?? []) {
       const li = document.createElement("li");
       li.textContent = key;
       rulesList.appendChild(li);

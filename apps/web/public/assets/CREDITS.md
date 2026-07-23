@@ -1,6 +1,11 @@
 # Assets & credits
 
-## Pastoral overworld tileset
+## Ground tiles
+Floors are drawn procedurally (flat calm colors). The pastoral atlas is kept in
+`public/assets/tiles/` but is **not** sampled for ground anymore — its village /
+roof cells were tiling as noisy “grass” and “houses.”
+
+## Pastoral overworld tileset (unused for floors)
 - Source: [pastoral overworld on OpenGameArt](https://opengameart.org/content/pastoral-overworld)
 - Author: pebonius
 - License: **CC0**
