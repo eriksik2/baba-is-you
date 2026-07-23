@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Baba — Groundwork</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Lilita+One&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app">
+      <header class="top">
+        <h1 class="brand">Baba</h1>
+        <p class="tagline" id="level-name">Loading…</p>
+      </header>
+      <main>
+        <canvas id="game" width="960" height="640" aria-label="Game board"></canvas>
+        <aside class="panel">
+          <h2>Rules</h2>
+          <ul id="rules-list"></ul>
+          <h2>Controls</h2>
+          <ul class="controls">
+            <li><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> / <kbd>WASD</kbd> move</li>
+            <li><kbd>Z</kbd> / <kbd>U</kbd> undo</li>
+            <li><kbd>R</kbd> restart</li>
+            <li><kbd>Space</kbd> wait</li>
+          </ul>
+          <p id="status" class="status" role="status"></p>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

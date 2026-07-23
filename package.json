@@ -1,0 +1,20 @@
+{
+  "name": "baba",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A Baba Is You–inspired puzzle engine with a flexible, data-driven rules system",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "dev": "bun run --filter @baba/web dev",
+    "build": "bun run --filter @baba/web build",
+    "test": "bun test packages/engine",
+    "test:watch": "bun test --watch packages/engine",
+    "typecheck": "bun run --filter '*' typecheck",
+    "check": "bun run typecheck && bun run test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "bun@1.3.14"
+}

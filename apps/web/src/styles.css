@@ -1,0 +1,149 @@
+:root {
+  --bg-deep: #1a2332;
+  --bg-mid: #243044;
+  --bg-grid: #2c3b52;
+  --ink: #e8eef7;
+  --muted: #9aadc6;
+  --accent: #f0c75e;
+  --noun: #6ec6ff;
+  --property: #ff7eb6;
+  --operator: #ffffff;
+  --baba: #f4f0ea;
+  --wall: #5a6a7e;
+  --flag: #f0c75e;
+  --rock: #c4a574;
+  --skull: #d0d5dd;
+  --water: #3d7ea6;
+  --cell: 48px;
+  --radius: 6px;
+  --font-display: "Lilita One", "Comic Sans MS", cursive;
+  --font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, #2a3d58 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, #1e2f28 0%, transparent 50%),
+    var(--bg-deep);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.top {
+  margin-bottom: 1rem;
+}
+
+.brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 3.75rem);
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  text-shadow: 2px 3px 0 #00000055;
+  line-height: 1;
+}
+
+.tagline {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+#game {
+  width: 100%;
+  height: auto;
+  background: linear-gradient(160deg, var(--bg-mid), #1c2738);
+  border: 2px solid #00000044;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px #00000055;
+  image-rendering: pixelated;
+}
+
+.panel {
+  background: #00000022;
+  border: 1px solid #ffffff14;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.panel h2 + h2,
+.controls {
+  margin-top: 1.25rem;
+}
+
+#rules-list,
+.controls {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+#rules-list {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  list-style: none;
+  padding-left: 0;
+}
+
+#rules-list li {
+  padding: 0.2rem 0;
+  color: var(--accent);
+}
+
+.controls kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0.1em 0.35em;
+  margin: 0 0.1em;
+  border-radius: 4px;
+  border: 1px solid #ffffff33;
+  background: #ffffff12;
+  font-size: 0.8em;
+  text-align: center;
+}
+
+.status {
+  margin: 1.25rem 0 0;
+  min-height: 1.4em;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--accent);
+}
+
+@media (max-width: 800px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+}
