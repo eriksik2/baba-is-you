@@ -6,6 +6,8 @@ Groundwork for a **Baba Is You**-inspired puzzle game: grid levels, turn-based c
 
 https://eriksik2.github.io/baba-is-you/
 
+Works on phone and desktop — swipe the board or use the on-screen pad; keyboard still works on desktop.
+
 Pushes to `main` build and deploy the web client via GitHub Actions → Pages.
 
 ## Quick start
