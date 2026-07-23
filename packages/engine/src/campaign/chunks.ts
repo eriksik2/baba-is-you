@@ -110,6 +110,40 @@ export function flattenChunks(
   return { originX, originY, width, height, background, areaMap };
 }
 
+/**
+ * Crop a flattened chunk rect to an authored world-space rectangle.
+ * Prevents dense→chunk padding from opening walkable void past level walls.
+ */
+export function cropDense(
+  dense: DenseBounds,
+  worldX: number,
+  worldY: number,
+  width: number,
+  height: number,
+): DenseBounds {
+  const background = fill(width, height, DEFAULT_BG);
+  const areaMap = Array.from({ length: width * height }, () => 0);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const sx = worldX - dense.originX + x;
+      const sy = worldY - dense.originY + y;
+      const di = y * width + x;
+      if (sx < 0 || sy < 0 || sx >= dense.width || sy >= dense.height) continue;
+      const si = sy * dense.width + sx;
+      background[di] = dense.background[si] ?? DEFAULT_BG;
+      areaMap[di] = dense.areaMap[si] ?? 0;
+    }
+  }
+  return {
+    originX: worldX,
+    originY: worldY,
+    width,
+    height,
+    background,
+    areaMap,
+  };
+}
+
 /** Convert a legacy dense LevelDocument (width/height arrays) into chunks. */
 export function migrateDenseToChunks(doc: LevelDocument): LevelDocument {
   if (doc.chunks && doc.chunks.length > 0) {
