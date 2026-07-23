@@ -6,8 +6,11 @@ Groundwork for a **Baba Is You**-inspired puzzle game: grid levels, turn-based c
 
 https://eriksik2.github.io/baba-is-you/
 
-Main menu → **Play** opens the pastoral overworld. Walk into glowing portals to enter levels.
-Phone: swipe or use the d-pad (center = Wait); **Undo** bottom-left; ☰ for Restart/Exit.
+Hard-refresh after updates. The level fills the screen — tap **⌃** to show Undo / d-pad; drag to pan, pinch or **+/−** to zoom; ☰ → Fit / Restart / Exit.
+
+## Format notes
+
+Levels are **chunk-based** (16×16 tiles). Dense authoring still works and is migrated on load/save. Paint past the edge in the editor to grow the map.
 
 ## What’s new
 
