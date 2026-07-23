@@ -2,6 +2,12 @@
 
 Groundwork for a **Baba Is You**-inspired puzzle game: grid levels, turn-based controls, and a flexible rules engine — built with **Bun** and **TypeScript**.
 
+## Play
+
+https://eriksik2.github.io/baba-is-you/
+
+Pushes to `main` build and deploy the web client via GitHub Actions → Pages.
+
 ## Quick start
 
 ```bash
