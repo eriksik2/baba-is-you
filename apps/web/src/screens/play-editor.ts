@@ -85,8 +85,6 @@ export function mountPlay(api: AppApi): {
   const levelName = document.querySelector<HTMLParagraphElement>("#level-name")!;
   const menuBtn = document.querySelector<HTMLButtonElement>("#btn-menu")!;
   const menuPanel = document.querySelector<HTMLElement>("#hamburger-panel")!;
-  const controlsBtn = document.querySelector<HTMLButtonElement>("#btn-controls")!;
-  const touchDock = document.querySelector<HTMLElement>("#touch-dock")!;
 
   const renderer = new CanvasRenderer(canvas);
   let session: GameSession | null = null;
@@ -98,19 +96,10 @@ export function mountPlay(api: AppApi): {
   let lastT = performance.now();
   let camera: Camera = { x: 0, y: 0, zoom: 32 };
   let userPan = false;
-  let activelyPanning = false;
 
   const pointers = new Map<number, { x: number; y: number }>();
   let pinchStartDist = 0;
   let pinchStartZoom = 32;
-  let panLast: { x: number; y: number } | null = null;
-  let gestureMoved = false;
-  let lastTapAt = 0;
-  let lastTapPos: { x: number; y: number } | null = null;
-
-  function controlsOpen(): boolean {
-    return !touchDock.hidden && !touchDock.classList.contains("is-collapsed");
-  }
 
   function progressPortals(): Record<string, { unlocked?: boolean; completed?: boolean }> {
     const progress = loadProgress();
@@ -149,8 +138,8 @@ export function mountPlay(api: AppApi): {
   }
 
   function followYou(): void {
-    // Soft follow unless the player has taken the camera (pan/zoom) or is dragging.
-    if (!session || userPan || activelyPanning) return;
+    // Soft follow unless the player has taken the camera (pinch/zoom).
+    if (!session || userPan) return;
     const you = session.world.entitiesWithProperty("you")[0];
     if (!you) return;
     camera = {
@@ -161,6 +150,9 @@ export function mountPlay(api: AppApi): {
   }
 
   function drawFrame(now: number): void {
+    // Always reschedule — an early return before this used to kill the loop
+    // while session was still null on boot, leaving a permanent black board.
+    raf = requestAnimationFrame(drawFrame);
     if (!session) return;
     const dt = Math.min(0.05, (now - lastT) / 1000);
     lastT = now;
@@ -175,7 +167,6 @@ export function mountPlay(api: AppApi): {
       portals: session.world.portals,
       progressPortals: progressPortals(),
     });
-    raf = requestAnimationFrame(drawFrame);
   }
 
   function captureLerp(before: World, after: World): void {
@@ -270,28 +261,10 @@ export function mountPlay(api: AppApi): {
     menuBtn.setAttribute("aria-expanded", openMenu ? "true" : "false");
   }
 
-  function rebindControls(): void {
-    controls?.destroy();
-    const opts: { root: ParentNode; swipeTarget?: HTMLElement } = { root: screen };
-    if (controlsOpen()) opts.swipeTarget = canvas;
-    controls = bindControls((intent) => dispatch(intent), opts);
-  }
-
-  function setControlsOpen(openDock: boolean): void {
-    touchDock.hidden = !openDock;
-    touchDock.classList.toggle("is-collapsed", !openDock);
-    controlsBtn.setAttribute("aria-pressed", openDock ? "true" : "false");
-    controlsBtn.setAttribute("aria-label", openDock ? "Hide controls" : "Show controls");
-    screen.classList.toggle("controls-open", openDock);
-    rebindControls();
-    layout();
-  }
-
   function open(doc: LevelDocument, opts?: { fromEditor?: boolean }): void {
     sourceDoc = structuredClone(doc);
     fromEditor = !!opts?.fromEditor;
     userPan = false;
-    activelyPanning = false;
     const world = loadDocument(doc);
     const progress = loadProgress();
     if (doc.isOverworld && progress.overworldPos) {
@@ -307,6 +280,16 @@ export function mountPlay(api: AppApi): {
     refreshRules();
     api.showScreen("play");
     layout();
+    // Paint immediately so the first frame isn't a blank shell while rAF catches up.
+    renderer.draw(session.world, {
+      t: performance.now() / 1000,
+      lerp,
+      camera,
+      showAreas: false,
+      areaDefs: session.world.areaDefs,
+      portals: session.world.portals,
+      progressPortals: progressPortals(),
+    });
     requestAnimationFrame(() => {
       layout();
     });
@@ -323,30 +306,15 @@ export function mountPlay(api: AppApi): {
     });
   });
 
-  // --- Canvas pan / pinch / double-tap fit ---
+  // --- Pinch zoom (one-finger swipe-to-move is handled by bindControls) ---
   canvas.addEventListener("pointerdown", (ev) => {
     if (ev.pointerType === "mouse" && ev.button !== 0) return;
     pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-    gestureMoved = false;
 
     if (pointers.size === 2) {
       const pts = [...pointers.values()];
       pinchStartDist = Math.max(1, dist(pts[0]!, pts[1]!));
       pinchStartZoom = camera.zoom;
-      activelyPanning = false;
-      panLast = null;
-      return;
-    }
-
-    // One-finger: pan only when controls collapsed (swipe-move is bound when open)
-    if (!controlsOpen()) {
-      activelyPanning = true;
-      panLast = { x: ev.clientX, y: ev.clientY };
-      try {
-        canvas.setPointerCapture(ev.pointerId);
-      } catch {
-        /* ignore */
-      }
     }
   });
 
@@ -366,54 +334,13 @@ export function mountPlay(api: AppApi): {
       if (Math.abs(f - 1) > 0.001) {
         camera = zoomAround(renderer, camera, f, m.x - rect.left, m.y - rect.top);
         userPan = true;
-        gestureMoved = true;
       }
-      return;
-    }
-
-    if (activelyPanning && panLast && !controlsOpen()) {
-      const dx = ev.clientX - panLast.x;
-      const dy = ev.clientY - panLast.y;
-      if (Math.abs(dx) + Math.abs(dy) > 2) gestureMoved = true;
-      camera = {
-        ...camera,
-        x: camera.x - dx / camera.zoom,
-        y: camera.y - dy / camera.zoom,
-      };
-      panLast = { x: ev.clientX, y: ev.clientY };
-      userPan = true;
     }
   });
 
   const endPointer = (ev: PointerEvent) => {
-    const wasTracking = pointers.has(ev.pointerId);
     pointers.delete(ev.pointerId);
     if (pointers.size < 2) pinchStartDist = 0;
-
-    if (pointers.size === 0) {
-      if (wasTracking && !gestureMoved && !controlsOpen()) {
-        const now = performance.now();
-        const pos = { x: ev.clientX, y: ev.clientY };
-        if (
-          lastTapPos &&
-          now - lastTapAt < 320 &&
-          Math.hypot(pos.x - lastTapPos.x, pos.y - lastTapPos.y) < 28
-        ) {
-          fitCamera();
-          lastTapAt = 0;
-          lastTapPos = null;
-        } else {
-          lastTapAt = now;
-          lastTapPos = pos;
-        }
-      }
-      activelyPanning = false;
-      panLast = null;
-    } else if (pointers.size === 1 && !controlsOpen()) {
-      const only = [...pointers.values()][0]!;
-      activelyPanning = true;
-      panLast = { x: only.x, y: only.y };
-    }
   };
 
   canvas.addEventListener("pointerup", endPointer);
@@ -433,11 +360,10 @@ export function mountPlay(api: AppApi): {
     }
   });
 
-  controlsBtn.addEventListener("click", () => {
-    setControlsOpen(!controlsOpen());
+  controls = bindControls((intent) => dispatch(intent), {
+    root: screen,
+    swipeTarget: canvas,
   });
-
-  rebindControls();
 
   const ro = new ResizeObserver(() => layout());
   ro.observe(boardShell);
