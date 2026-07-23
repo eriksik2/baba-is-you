@@ -17,6 +17,7 @@ export const BG = {
   dirt: "dirt",
   stone: "stone",
   bush: "bush",
+  jungle: "jungle",
 } as const;
 
 export type BgTile = (typeof BG)[keyof typeof BG];
@@ -100,6 +101,14 @@ function wallRect(x0: number, y0: number, x1: number, y1: number): LevelEntitySp
   return out;
 }
 
+function treeRect(x0: number, y0: number, x1: number, y1: number): LevelEntitySpec[] {
+  const out: LevelEntitySpec[] = [];
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) out.push(obj("tree", x, y));
+  }
+  return out;
+}
+
 export function createBlankLevel(
   id: string,
   name: string,
@@ -123,28 +132,44 @@ export function createBlankLevel(
 }
 
 // ---------------------------------------------------------------------------
-// Linear overworld — tight 1-cell corridor I → II → III → IV, ? spur south
-// Authored as one 16×16 chunk so dense→chunk padding cannot open void.
+// Overworld — pastoral west → jungle east (32×16, two chunks wide)
 // ---------------------------------------------------------------------------
 
-const OW_W = 16;
+const OW_W = 32;
 const OW_H = 16;
-/** Corridor row. */
-const OW_Y = 7;
 
-function overworldWalls(): LevelEntitySpec[] {
+function overworldSolid(): LevelEntitySpec[] {
+  /** Walkable clearings + a short bottleneck with a pushable rock. */
   const walk = new Set<string>();
-  for (let x = 1; x <= 14; x++) walk.add(`${x},${OW_Y}`);
-  // Spur down to special portal
-  walk.add(`9,8`);
-  walk.add(`9,9`);
-  walk.add(`9,10`);
-  walk.add(`9,11`);
+  const add = (x: number, y: number) => walk.add(`${x},${y}`);
+  const addRect = (x0: number, y0: number, x1: number, y1: number) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) add(x, y);
+  };
+
+  // West pastoral meadow
+  addRect(1, 3, 9, 12);
+  // Bottleneck: only (10,8) links west→east; (10,9) is a dead-end pocket
+  add(10, 8);
+  add(10, 9);
+  // Single-cell link into the roomier east path
+  add(11, 8);
+  // Central path (roomy after the gate)
+  addRect(12, 6, 20, 10);
+  // Special spur south
+  add(15, 11);
+  add(15, 12);
+  add(15, 13);
+  // Jungle clearings east
+  addRect(21, 4, 30, 12);
+  // Link from path into jungle
+  addRect(19, 7, 21, 9);
+
   const out: LevelEntitySpec[] = [];
   for (let y = 0; y < OW_H; y++) {
     for (let x = 0; x < OW_W; x++) {
       if (walk.has(`${x},${y}`)) continue;
-      out.push(obj("wall", x, y));
+      if (x >= 18) out.push(obj("tree", x, y));
+      else out.push(obj("wall", x, y));
     }
   }
   return out;
@@ -159,41 +184,54 @@ export const OVERWORLD: LevelDocument = {
   globalRules: [
     { subject: "baba", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
+    { subject: "tree", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "push" },
   ],
   areas: [],
   areaMap: emptyAreaMap(OW_W, OW_H),
   background: (() => {
-    const bg = fill(OW_W, OW_H, BG.bush);
-    stamp(bg, OW_W, { x: 1, y: OW_Y, w: 14, h: 1 }, BG.path);
-    stamp(bg, OW_W, { x: 9, y: 8, w: 1, h: 4 }, BG.path);
+    const bg = fill(OW_W, OW_H, BG.grass);
+    stamp(bg, OW_W, { x: 0, y: 0, w: 18, h: OW_H }, BG.grass);
+    stamp(bg, OW_W, { x: 1, y: 3, w: 9, h: 10 }, BG.grass2);
+    stamp(bg, OW_W, { x: 3, y: 5, w: 2, h: 2 }, BG.flower);
+    stamp(bg, OW_W, { x: 11, y: 6, w: 10, h: 5 }, BG.path);
+    stamp(bg, OW_W, { x: 15, y: 11, w: 1, h: 3 }, BG.dirt);
+    stamp(bg, OW_W, { x: 18, y: 0, w: 14, h: OW_H }, BG.jungle);
+    stamp(bg, OW_W, { x: 21, y: 4, w: 10, h: 9 }, BG.jungle);
+    stamp(bg, OW_W, { x: 19, y: 7, w: 3, h: 3 }, BG.path);
     return bg;
   })(),
-  entities: [...overworldWalls(), obj("baba", 2, OW_Y)],
+  entities: [
+    ...overworldSolid(),
+    obj("baba", 3, 8),
+    // Mini puzzle: rock blocks the east passage; push it down into the pocket.
+    obj("rock", 10, 8),
+  ],
   isOverworld: true,
-  spawn: { x: 2, y: OW_Y },
-  camera: { mode: "follow", zoom: 56 },
+  spawn: { x: 3, y: 8 },
+  camera: { mode: "follow", zoom: 50 },
   portals: [
-    { id: "p1", x: 4, y: OW_Y, targetLevelId: "level-1", label: "I" },
+    { id: "p1", x: 5, y: 7, targetLevelId: "level-1", label: "I" },
     {
       id: "p2",
-      x: 6,
-      y: OW_Y,
+      x: 12,
+      y: 8,
       targetLevelId: "level-2",
       requires: "level-1",
       label: "II",
     },
     {
       id: "p3",
-      x: 9,
-      y: OW_Y,
+      x: 16,
+      y: 8,
       targetLevelId: "level-3",
       requires: "level-2",
       label: "III",
     },
     {
       id: "p-special",
-      x: 9,
-      y: 11,
+      x: 15,
+      y: 13,
       targetLevelId: "level-special",
       requires: "level-2",
       label: "?",
@@ -201,11 +239,27 @@ export const OVERWORLD: LevelDocument = {
     },
     {
       id: "p4",
-      x: 12,
-      y: OW_Y,
+      x: 19,
+      y: 8,
       targetLevelId: "level-4",
       requires: "level-3",
       label: "IV",
+    },
+    {
+      id: "pj1",
+      x: 24,
+      y: 8,
+      targetLevelId: "level-jungle-1",
+      requires: "level-4",
+      label: "J1",
+    },
+    {
+      id: "pj2",
+      x: 28,
+      y: 8,
+      targetLevelId: "level-jungle-2",
+      requires: "level-jungle-1",
+      label: "J2",
     },
   ],
 };
@@ -247,45 +301,55 @@ export const LEVEL_1: LevelDocument = {
 };
 
 // ---------------------------------------------------------------------------
-// L2 — ROCK IS PUSH; push rocks down into pocket via gap above, then EXIT
+// L2 — ROCK IS PUSH; one rock into south pocket, then up the shaft to EXIT
+// Softlock-safe: wall east of rock blocks shoving it toward the exit path.
 // ---------------------------------------------------------------------------
 
 export const LEVEL_2: LevelDocument = {
   id: "level-2",
   name: "Shove",
-  width: 13,
-  height: 9,
+  width: 11,
+  height: 8,
   globalRules: [
     { subject: "baba", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
   ],
   areas: [],
-  areaMap: emptyAreaMap(13, 9),
+  areaMap: emptyAreaMap(11, 8),
   background: (() => {
-    const bg = fill(13, 9, BG.grass);
-    stamp(bg, 13, { x: 1, y: 3, w: 11, h: 1 }, BG.path);
-    stamp(bg, 13, { x: 6, y: 2, w: 1, h: 4 }, BG.dirt);
+    const bg = fill(11, 8, BG.grass);
+    stamp(bg, 11, { x: 1, y: 3, w: 5, h: 1 }, BG.path);
+    stamp(bg, 11, { x: 6, y: 1, w: 1, h: 5 }, BG.dirt);
+    stamp(bg, 11, { x: 7, y: 1, w: 2, h: 1 }, BG.path);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 52 },
-  portals: [exitAt(11, 3)],
+  portals: [exitAt(9, 1)],
   entities: [
-    ...perimeter(13, 9),
-    ...wallRect(1, 2, 5, 2),
-    ...wallRect(7, 1, 11, 2),
-    obj("wall", 6, 1),
-    // (6,2) open — stand here to push rocks down
-    ...wallRect(1, 4, 5, 7),
-    ...wallRect(7, 4, 11, 7),
-    obj("wall", 6, 6),
-    obj("wall", 6, 7),
+    ...perimeter(11, 8),
+    // Texts on empty floor (not under walls)
+    txt("rock", 1, 1),
+    txt("is", 2, 1),
+    txt("push", 3, 1),
+    obj("wall", 4, 1),
+    obj("wall", 5, 1),
+    // y=1 shaft/exit lane: (6,1)(7,1)(8,1) open → EXIT (9,1)
 
+    // Ceiling with approach (5,2) + shaft (6,2); wall blocks east of rock
+    ...wallRect(1, 2, 4, 2),
+    ...wallRect(7, 2, 9, 2),
+
+    // Corridor — rock at shaft; wall blocks east push toward EXIT
     obj("baba", 2, 3),
-    txt("rock", 2, 1),
-    txt("is", 3, 1),
-    txt("push", 4, 1),
     obj("rock", 6, 3),
-    obj("rock", 7, 3),
+    ...wallRect(7, 3, 9, 3),
+
+    // Pocket shaft under the rock
+    ...wallRect(1, 4, 5, 4),
+    ...wallRect(7, 4, 9, 4),
+    ...wallRect(1, 5, 5, 5),
+    ...wallRect(7, 5, 9, 5),
+    ...wallRect(1, 6, 9, 6),
   ],
 };
 
@@ -338,6 +402,7 @@ export const LEVEL_3: LevelDocument = {
 
 // ---------------------------------------------------------------------------
 // L4 — push rock A into pocket, rewrite to PULL, extract rock B, EXIT
+// All rule texts sit on empty floor (never on STOP walls).
 // ---------------------------------------------------------------------------
 
 export const LEVEL_4: LevelDocument = {
@@ -354,19 +419,28 @@ export const LEVEL_4: LevelDocument = {
   background: (() => {
     const bg = fill(15, 10, BG.grass);
     stamp(bg, 15, { x: 1, y: 4, w: 13, h: 1 }, BG.path);
+    stamp(bg, 15, { x: 2, y: 1, w: 5, h: 1 }, BG.stone);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 48 },
   portals: [exitAt(13, 4)],
   entities: [
     ...perimeter(15, 10),
-    ...wallRect(1, 1, 13, 2),
+    // y=1: open floor for words
+    txt("rock", 2, 1),
+    txt("is", 3, 1),
+    txt("push", 4, 1),
+    txt("pull", 6, 1),
+
+    // Ceiling / structure below the words
+    ...wallRect(1, 2, 8, 2),
+    ...wallRect(10, 2, 13, 2),
+    // (9,2) alcove for rock B
     ...wallRect(1, 3, 4, 3),
     ...wallRect(6, 3, 8, 3),
     ...wallRect(10, 3, 13, 3),
-    // (5,3) open above rock A; (9,3) alcove for rock B
-    obj("wall", 8, 3),
-    obj("wall", 10, 3),
+    // (5,3) open above rock A; (9,3) rock B alcove
+
     ...wallRect(1, 5, 4, 8),
     ...wallRect(6, 5, 8, 8),
     ...wallRect(10, 5, 13, 8),
@@ -379,17 +453,13 @@ export const LEVEL_4: LevelDocument = {
     obj("wall", 9, 8),
 
     obj("baba", 2, 4),
-    txt("rock", 2, 1),
-    txt("is", 3, 1),
-    txt("push", 4, 1),
-    txt("pull", 6, 1),
     obj("rock", 5, 4),
     obj("rock", 9, 3),
   ],
 };
 
 // ---------------------------------------------------------------------------
-// Special (‖ III) — swap PUSH/PULL to clear alcove then jam
+// Special — push/pull swap; texts on empty floor
 // ---------------------------------------------------------------------------
 
 export const LEVEL_SPECIAL: LevelDocument = {
@@ -406,18 +476,24 @@ export const LEVEL_SPECIAL: LevelDocument = {
   background: (() => {
     const bg = fill(15, 10, BG.grass2);
     stamp(bg, 15, { x: 1, y: 4, w: 13, h: 1 }, BG.path);
+    stamp(bg, 15, { x: 2, y: 1, w: 7, h: 1 }, BG.stone);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 48 },
   portals: [exitAt(13, 4)],
   entities: [
     ...perimeter(15, 10),
-    ...wallRect(1, 1, 13, 2),
+    // Words on empty floor
+    txt("rock", 2, 1),
+    txt("is", 3, 1),
+    txt("push", 4, 1),
+    txt("pull", 8, 1),
+
+    ...wallRect(1, 2, 13, 2),
     ...wallRect(1, 3, 5, 3),
     ...wallRect(7, 3, 13, 3),
-    // (6,3) alcove
-    obj("wall", 5, 3),
-    obj("wall", 7, 3),
+    // (6,3) alcove for jammed rock
+
     ...wallRect(1, 5, 8, 8),
     ...wallRect(11, 5, 13, 8),
     // pocket (9,5)(10,5) open
@@ -429,14 +505,149 @@ export const LEVEL_SPECIAL: LevelDocument = {
     obj("wall", 10, 8),
 
     obj("baba", 2, 4),
-    txt("rock", 2, 1),
-    txt("is", 3, 1),
-    txt("push", 4, 1),
-    txt("pull", 8, 1),
     obj("rock", 6, 3),
     obj("rock", 9, 4),
     obj("rock", 10, 4),
   ],
+};
+
+// ---------------------------------------------------------------------------
+// Jungle 1 — Fruit Gate: slide/push fruit onto door; FRUIT ON DOOR IS WIN
+// (also forms DOOR IS WIN — walk onto the door to finish)
+// ---------------------------------------------------------------------------
+
+export const LEVEL_JUNGLE_1: LevelDocument = {
+  id: "level-jungle-1",
+  name: "Fruit Gate",
+  width: 12,
+  height: 9,
+  globalRules: [
+    { subject: "baba", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "tree", verb: "is", object: "stop" },
+    { subject: "fruit", verb: "is", object: "push" },
+    { subject: "fruit", verb: "is", object: "slide" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(12, 9),
+  background: (() => {
+    const bg = fill(12, 9, BG.jungle);
+    stamp(bg, 12, { x: 1, y: 5, w: 7, h: 1 }, BG.dirt);
+    stamp(bg, 12, { x: 7, y: 1, w: 1, h: 5 }, BG.path);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 50 },
+  entities: (() => {
+    const walk = new Set<string>([
+      // Sentence + door row
+      "1,1",
+      "2,1",
+      "3,1",
+      "4,1",
+      "5,1",
+      "6,1",
+      "7,1",
+      "8,1",
+      "6,2",
+      // Shaft (includes cell under fruit so you can push north)
+      "7,2",
+      "7,3",
+      "7,4",
+      "7,5",
+      "7,6",
+      "6,6",
+      // Approach corridor — fruit starts here (down blocked by trees)
+      "1,5",
+      "2,5",
+      "3,5",
+      "4,5",
+      "5,5",
+      "6,5",
+    ]);
+    const ents: LevelEntitySpec[] = [...perimeter(12, 9)];
+    for (let y = 1; y <= 7; y++) {
+      for (let x = 1; x <= 10; x++) {
+        if (!walk.has(`${x},${y}`)) ents.push(obj("tree", x, y));
+      }
+    }
+    ents.push(
+      txt("fruit", 1, 1),
+      txt("on", 2, 1),
+      txt("door", 3, 1),
+      txt("is", 4, 1),
+      txt("win", 5, 1),
+      obj("door", 7, 1),
+      // On corridor: facing down is blocked, so it won't drift until pushed
+      obj("fruit", 5, 5),
+      obj("baba", 2, 5),
+    );
+    return ents;
+  })(),
+};
+
+// ---------------------------------------------------------------------------
+// Jungle 2 — Slip: baba is you + slide; narrow lanes; reach EXIT
+// ---------------------------------------------------------------------------
+
+export const LEVEL_JUNGLE_2: LevelDocument = {
+  id: "level-jungle-2",
+  name: "Slip",
+  width: 12,
+  height: 10,
+  globalRules: [
+    { subject: "baba", verb: "is", object: "you" },
+    { subject: "baba", verb: "is", object: "slide" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "stop" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(12, 10),
+  background: (() => {
+    const bg = fill(12, 10, BG.jungle);
+    stamp(bg, 12, { x: 2, y: 2, w: 1, h: 3 }, BG.path);
+    stamp(bg, 12, { x: 2, y: 4, w: 7, h: 1 }, BG.path);
+    stamp(bg, 12, { x: 8, y: 2, w: 1, h: 3 }, BG.dirt);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 50 },
+  portals: [exitAt(8, 2)],
+  entities: (() => {
+    const walk = new Set<string>([
+      "2,2",
+      "2,3",
+      "2,4",
+      "3,4",
+      "4,4",
+      "5,4",
+      "6,4",
+      "7,4",
+      "8,4",
+      "8,3",
+      "8,2",
+      "10,3",
+      "10,4",
+      "10,5",
+      "10,6",
+      "10,7",
+    ]);
+    const ents: LevelEntitySpec[] = [...perimeter(12, 10)];
+    for (let y = 1; y <= 8; y++) {
+      for (let x = 1; x <= 10; x++) {
+        if (!walk.has(`${x},${y}`)) ents.push(obj("wall", x, y));
+      }
+    }
+    ents.push(
+      obj("rock", 2, 5),
+      obj("rock", 9, 4),
+      txt("baba", 10, 3),
+      txt("is", 10, 4),
+      txt("you", 10, 5),
+      txt("and", 10, 6),
+      txt("slide", 10, 7),
+      obj("baba", 2, 2),
+    );
+    return ents;
+  })(),
 };
 
 export const CAMPAIGN_LEVELS: LevelDocument[] = [
@@ -446,6 +657,8 @@ export const CAMPAIGN_LEVELS: LevelDocument[] = [
   LEVEL_3,
   LEVEL_4,
   LEVEL_SPECIAL,
+  LEVEL_JUNGLE_1,
+  LEVEL_JUNGLE_2,
 ];
 
 export const INITIAL_UNLOCKS: string[] = ["overworld", "level-1"];
