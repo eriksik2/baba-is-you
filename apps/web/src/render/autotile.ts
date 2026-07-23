@@ -13,8 +13,7 @@ export interface WorldLike {
 }
 
 /**
- * Calm flat ground colors — no atlas sampling.
- * The pastoral sheet is a busy village/roof set; tiling it as floor reads as noise.
+ * Calm flat ground colors — fallback when atlas sheets are missing.
  */
 const FILL: Record<string, string> = {
   grass: "#5f7d4a",
@@ -25,6 +24,7 @@ const FILL: Record<string, string> = {
   stone: "#6e7680",
   flower: "#5f7d4a",
   bush: "#4d6a40",
+  jungle: "#3a5c32",
 };
 
 const ACCENT: Record<string, string> = {
@@ -36,6 +36,7 @@ const ACCENT: Record<string, string> = {
   stone: "rgba(255,255,255,0.05)",
   flower: "rgba(255,255,255,0.04)",
   bush: "rgba(0,0,0,0.06)",
+  jungle: "rgba(0,0,0,0.05)",
 };
 
 export function neighborMask(
@@ -50,6 +51,52 @@ export function neighborMask(
   if (y < worldLike.height - 1 && worldLike.bgAt({ x, y: y + 1 }) === tile) mask |= MASK_S;
   if (x > 0 && worldLike.bgAt({ x: x - 1, y }) === tile) mask |= MASK_W;
   return mask;
+}
+
+/**
+ * Map a 4-neighbor same-tile mask to a cell in the Edaz 7×3 jungle_autotile sheet.
+ * Outer 3×3 (cols 0–2): TL/T/TR / L/C/R / BL/B/BR for dirt/path vs leafy grass.
+ * Island at (3,0); other masks fall back to nearest edge or center fill.
+ */
+export function pathMaskToCell(mask: number): { col: number; row: number } {
+  switch (mask & 15) {
+    case 0:
+      return { col: 3, row: 0 }; // island
+    case MASK_E | MASK_S:
+      return { col: 0, row: 0 }; // TL
+    case MASK_E | MASK_S | MASK_W:
+      return { col: 1, row: 0 }; // T
+    case MASK_S | MASK_W:
+      return { col: 2, row: 0 }; // TR
+    case MASK_N | MASK_E | MASK_S:
+      return { col: 0, row: 1 }; // L
+    case MASK_N | MASK_E | MASK_S | MASK_W:
+      return { col: 1, row: 1 }; // C
+    case MASK_N | MASK_S | MASK_W:
+      return { col: 2, row: 1 }; // R
+    case MASK_N | MASK_E:
+      return { col: 0, row: 2 }; // BL
+    case MASK_N | MASK_E | MASK_W:
+      return { col: 1, row: 2 }; // B
+    case MASK_N | MASK_W:
+      return { col: 2, row: 2 }; // BR
+    // Corridors → solid dirt fill variants
+    case MASK_N | MASK_S:
+      return { col: 5, row: 0 };
+    case MASK_E | MASK_W:
+      return { col: 6, row: 0 };
+    // Single-neighbor tips → matching outer edges
+    case MASK_N:
+      return { col: 1, row: 2 }; // B
+    case MASK_S:
+      return { col: 1, row: 0 }; // T
+    case MASK_E:
+      return { col: 0, row: 1 }; // L
+    case MASK_W:
+      return { col: 2, row: 1 }; // R
+    default:
+      return { col: 1, row: 1 };
+  }
 }
 
 function hash2(x: number, y: number): number {
@@ -158,21 +205,16 @@ function waterShimmer(
   ctx.restore();
 }
 
-/**
- * Calm procedural ground tile. Atlas is unused for floors (kept in signature
- * for call-site compatibility).
- */
-export function drawAutotile(
+function drawProcedural(
   ctx: CanvasRenderingContext2D,
-  _atlas: AssetAtlas,
   tile: string,
   mask: number,
   dx: number,
   dy: number,
   s: number,
   phase: number,
-  cellX = 0,
-  cellY = 0,
+  cellX: number,
+  cellY: number,
 ): void {
   ctx.fillStyle = FILL[tile] ?? "#4a5a4a";
   ctx.fillRect(dx, dy, s, s);
@@ -200,4 +242,45 @@ export function drawAutotile(
   if (tile === "water") {
     waterShimmer(ctx, dx, dy, s, phase);
   }
+}
+
+/**
+ * Draw a ground tile. Uses Edaz jungle sheets for path/dirt/jungle/bush when
+ * the atlas has loaded them; otherwise falls back to procedural fills.
+ */
+export function drawAutotile(
+  ctx: CanvasRenderingContext2D,
+  atlas: AssetAtlas,
+  tile: string,
+  mask: number,
+  dx: number,
+  dy: number,
+  s: number,
+  phase: number,
+  cellX = 0,
+  cellY = 0,
+): void {
+  // Path / dirt → Edaz 3×3 autotile (dirt surrounded by leafy jungle grass).
+  if ((tile === "path" || tile === "dirt") && atlas.jungleAutotile) {
+    const cell = pathMaskToCell(mask);
+    atlas.drawJungleAutotile(ctx, cell.col, cell.row, dx, dy, s);
+    return;
+  }
+
+  // Jungle / bush → thick jungle grass fill.
+  if ((tile === "jungle" || tile === "bush") && atlas.jungleGrass) {
+    atlas.drawJungleGrass(ctx, dx, dy, s);
+    edgeShade(
+      ctx,
+      mask,
+      dx,
+      dy,
+      s,
+      "rgba(12, 28, 10, 0.22)",
+      "rgba(180, 220, 140, 0.1)",
+    );
+    return;
+  }
+
+  drawProcedural(ctx, tile, mask, dx, dy, s, phase, cellX, cellY);
 }
