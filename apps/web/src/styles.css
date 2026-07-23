@@ -80,10 +80,6 @@ body {
   overflow: hidden;
 }
 
-#screen-play.controls-open.is-active {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-}
-
 #screen-editor-hub.is-active {
   grid-template-rows: auto auto 1fr;
   gap: 1rem;
@@ -341,11 +337,6 @@ body {
   gap: 0.65rem;
   padding-top: 0.1rem;
   user-select: none;
-}
-
-.touch-dock[hidden],
-.touch-dock.is-collapsed {
-  display: none !important;
 }
 
 .editor-toolbar[hidden],
