@@ -11,7 +11,6 @@ export function applyTransforms(world: World): boolean {
     if (!e.alive || e.kind !== "object") continue;
     const area = world.areaAt(e.position);
     const target = world.transformTarget(e.noun, area);
-    // X IS X is a no-op (and in real Baba often means "survive transform").
     if (!target || target === e.noun) continue;
     e.noun = target;
     changed = true;
@@ -20,13 +19,12 @@ export function applyTransforms(world: World): boolean {
 }
 
 /**
- * Run end-of-turn property resolution (win/defeat/hot/melt on same cell, YOU IS WIN, …).
+ * End-of-turn status: property hooks, exit portals, lose if nothing is YOU.
  */
 export function resolveOverlaps(world: World, properties: PropertyRegistry): void {
   const ctx = { world };
   for (const e of [...world.entities.values()]) {
     if (!e.alive) continue;
-    // Fire resolve for any property the entity currently has (global ∪ area).
     for (const handler of properties.all()) {
       if (world.hasProperty(e, handler.id)) {
         handler.onResolve?.(e, ctx);
@@ -34,7 +32,20 @@ export function resolveOverlaps(world: World, properties: PropertyRegistry): voi
     }
   }
 
-  // Lose if nothing is YOU.
+  if (world.status === "playing") {
+    const yous = world.entitiesWithProperty("you");
+    for (const you of yous) {
+      for (const portal of world.portals) {
+        if (!portal.exit) continue;
+        if (you.position.x === portal.x && you.position.y === portal.y) {
+          world.status = "won";
+          break;
+        }
+      }
+      if (world.status === "won") break;
+    }
+  }
+
   if (world.status === "playing") {
     const yous = world.entitiesWithProperty("you");
     if (yous.length === 0) {

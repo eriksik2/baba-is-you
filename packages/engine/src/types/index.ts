@@ -47,6 +47,13 @@ export const DIRECTION_DELTA: Record<Direction, Vec2> = {
   right: { x: 1, y: 0 },
 };
 
+export const OPPOSITE_DIRECTION: Record<Direction, Direction> = {
+  up: "down",
+  down: "up",
+  left: "right",
+  right: "left",
+};
+
 export function asEntityId(n: number): EntityId {
   return n as EntityId;
 }

@@ -3,18 +3,11 @@ import { atlas, type AssetAtlas, type SheepDir } from "./atlas";
 import { drawAutotile, MASK_E, MASK_N, MASK_S, MASK_W, neighborMask } from "./autotile";
 import { ParticleSystem } from "./particles";
 
-/** High-contrast fills so objects read over pastoral grass. */
+/** High-contrast fills so objects read over ground. */
 const PALETTE: Record<string, string> = {
   baba: "#fff4e0",
-  keke: "#ff5a3a",
   wall: "#7a8ca4",
   rock: "#e0b078",
-  flag: "#ffd45a",
-  water: "#3d7ea6",
-  lava: "#ff5530",
-  skull: "#eef1f6",
-  grass: "#6a9a5a",
-  tile: "#3a4a5e",
   text: "#ffffff",
   "text-noun": "#3db4ff",
   "text-property": "#ff5aad",
@@ -438,24 +431,7 @@ export class CanvasRenderer {
     const noun = world.lexicon.getNoun(e.noun);
     const color = PALETTE[noun?.palette ?? e.noun] ?? "#aaa";
 
-    if (e.noun === "keke") {
-      this.drawFallbackCreature(ctx, x, y, cs, color, eye);
-    } else if (e.noun === "flag") {
-      const poleX = x + cs * 0.34;
-      const poleW = Math.max(2, cs * 0.07);
-      ctx.fillStyle = "#2a1e12";
-      ctx.fillRect(poleX, y + cs * 0.16, poleW, cs * 0.66);
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(poleX + poleW, y + cs * 0.16);
-      ctx.lineTo(x + cs * 0.82, y + cs * 0.3);
-      ctx.lineTo(poleX + poleW, y + cs * 0.44);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = "rgba(20,16,8,0.65)";
-      ctx.lineWidth = strokeW * 0.7;
-      ctx.stroke();
-    } else if (e.noun === "rock") {
+    if (e.noun === "rock") {
       ctx.beginPath();
       ctx.ellipse(x + cs / 2, y + cs / 2 + cs * 0.02, cs * 0.34, cs * 0.28, 0, 0, Math.PI * 2);
       ctx.fillStyle = color;
@@ -466,19 +442,6 @@ export class CanvasRenderer {
       ctx.fillStyle = "rgba(255,255,255,0.22)";
       ctx.beginPath();
       ctx.ellipse(x + cs / 2 - cs * 0.08, y + cs / 2 - cs * 0.06, cs * 0.12, cs * 0.08, -0.4, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (e.noun === "skull") {
-      ctx.beginPath();
-      ctx.ellipse(x + cs / 2, y + cs / 2 - cs * 0.02, cs * 0.32, cs * 0.34, 0, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(20,20,28,0.7)";
-      ctx.lineWidth = strokeW;
-      ctx.stroke();
-      ctx.fillStyle = "#1a1a22";
-      ctx.beginPath();
-      ctx.arc(x + cs / 2 - cs * 0.11, y + cs / 2 - cs * 0.05, eye * 1.35, 0, Math.PI * 2);
-      ctx.arc(x + cs / 2 + cs * 0.11, y + cs / 2 - cs * 0.05, eye * 1.35, 0, Math.PI * 2);
       ctx.fill();
     } else {
       roundRect(ctx, x + inset + 1, y + inset + 1, cs - inset * 2 - 2, cs - inset * 2 - 2, Math.max(4, cs * 0.16));

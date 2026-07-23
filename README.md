@@ -6,7 +6,9 @@ Groundwork for a **Baba Is You**-inspired puzzle game: grid levels, turn-based c
 
 https://eriksik2.github.io/baba-is-you/
 
-Hard-refresh after updates. Play follows you at a fixed zoom (no player zoom). Undo + d-pad always on. Editor: **Board** hides the tool chrome so the canvas fills the screen (drag/pinch); **Tools** brings paint UI back.
+Hard-refresh after updates. Play follows you at a fixed zoom. Undo + d-pad always on. Editor: **Board** / **Tools** toggles paint chrome.
+
+**Vocabulary (for now):** `baba` `wall` `rock` `is` `you` `push` `stop` `pull`. Levels end on an **EXIT** tile. Campaign is a linear path (I–IV) plus one hard `?` spur at III.
 
 ## Format notes
 
@@ -14,10 +16,11 @@ Levels are **chunk-based** (16×16 tiles). Dense authoring still works and is mi
 
 ## What’s new
 
-- **Rule areas** — board text only forms/applies rules inside painted areas; **global rules** apply everywhere without text
-- **Overworld campaign** with unlockable portals and a harder special route
-- **Level editor** — layers (objects/text/ground/areas), paint/box/bucket, global rules, test & save (localStorage)
-- **Visuals** — OpenGameArt pastoral tiles + autotiling, sheep sprite for Baba, particles, smooth moves
+- Slim vocabulary: **baba / wall / rock / is / you / push / stop / pull**
+- **PULL** — move away from a pullable and it follows (blocks like STOP if you walk into it)
+- Linear overworld (I→IV) + hard **?** spur at III
+- Levels clear on an **EXIT** tile (no flag/win words for now)
+- Rule areas, editor, calm procedural ground
 
 Pushes to `main` deploy via GitHub Actions → Pages.
 

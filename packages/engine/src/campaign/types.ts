@@ -44,6 +44,8 @@ export interface LevelPortal {
   requires?: string;
   label?: string;
   special?: boolean;
+  /** Puzzle exit: YOU stepping here sets status to won. */
+  exit?: boolean;
 }
 
 export interface LevelDocument {

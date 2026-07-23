@@ -1,13 +1,12 @@
 import type { LevelDefinition } from "./format";
 
-/** Classic intro: break WALL IS STOP, form FLAG IS WIN (or BABA IS WIN). */
+/** Legacy CSV intro — still uses the slim lexicon + exit via rock walk (no flag). */
 export const LEVEL_0_BABA_IS_YOU: LevelDefinition = {
   id: "level-0",
   name: "Baba Is You",
   layout: `
 ,,,,,,,,,
-,baba,is,you,,,flag,is,,
-,,,,,,flag!,,win,
+,baba,is,you,,,,,,,
 ,,,,,,,,,
 ,wall!,wall!,wall!,wall!,wall!,,,,
 ,wall!,,,,wall!,,,,
@@ -19,12 +18,13 @@ export const LEVEL_0_BABA_IS_YOU: LevelDefinition = {
 `,
 };
 
+/** Tiny smoke: move onto open tile (rules only). */
 export const LEVEL_TINY_SMOKE: LevelDefinition = {
   id: "tiny-smoke",
   name: "Smoke Test",
   layout: `
-baba,is,you,flag,is,win
-baba!,,,flag!,,
+baba,is,you,wall,is,stop
+baba!,,,,,,
 `,
 };
 
