@@ -74,4 +74,20 @@ describe("rule areas", () => {
     expect(session.world.isOverworld).toBe(true);
     expect(session.world.portals.length).toBeGreaterThan(0);
   });
+
+  test("display rules focus on the player's current area", () => {
+    const world = loadDocument(OVERWORLD);
+    const you = world.entitiesWithProperty("you")[0]!;
+    // Outside areas: should not list every local rule key unscoped.
+    const outside = world.activeFeaturesForDisplay(world.areaAt(you.position));
+    expect(outside.some((k) => k.includes("baba is you") || k === "baba is you")).toBe(true);
+
+    // Step into garden if needed — find a garden cell with no solid wall text conflict.
+    const gardenCell = { x: 3, y: 3 };
+    expect(world.areaAt(gardenCell)).toBe(1);
+    world.moveEntity(you.id, gardenCell);
+    world.rebuildRules();
+    const inside = world.activeFeaturesForDisplay(1);
+    expect(inside.some((k) => k.toLowerCase().includes("wall is stop"))).toBe(true);
+  });
 });

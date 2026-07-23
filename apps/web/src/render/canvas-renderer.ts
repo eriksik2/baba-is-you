@@ -46,7 +46,10 @@ export type DrawOptions = {
   t?: number;
   lerp?: Map<number, LerpState>;
   camera?: Camera;
+  /** Editor: fill areas with translucent color + hatch. */
   showAreas?: boolean;
+  /** Play (default true when areaDefs exist): thin inner border outlines. */
+  outlineAreas?: boolean;
   areaDefs?: AreaDef[];
   portals?: NonNullable<LevelDocument["portals"]>;
   progressPortals?: Record<string, PortalProgress>;
@@ -163,24 +166,17 @@ export class CanvasRenderer {
         const tile = world.bgAt({ x, y });
         const mask = neighborMask(world, x, y, tile);
         const { sx, sy } = this.worldToScreen(x, y, cam);
-        drawAutotile(ctx, this.assets, tile, mask, sx, sy, cs, t);
+        drawAutotile(ctx, this.assets, tile, mask, sx, sy, cs, t, x, y);
       }
     }
 
     const areaDefs = opts.areaDefs ?? world.areaDefs;
     if (opts.showAreas && areaDefs.length > 0) {
-      const byId = new Map(areaDefs.map((a) => [a.id, a]));
-      for (let y = y0; y <= y1; y++) {
-        for (let x = x0; x <= x1; x++) {
-          const id = world.areaAt({ x, y });
-          if (!id) continue;
-          const def = byId.get(id);
-          if (!def) continue;
-          const { sx, sy } = this.worldToScreen(x, y, cam);
-          ctx.fillStyle = def.color;
-          ctx.fillRect(sx, sy, cs, cs);
-        }
-      }
+      this.drawAreaFills(world, areaDefs, cam, x0, y0, x1, y1);
+    }
+    // Always outline areas in play and editor so borders stay readable.
+    if ((opts.outlineAreas ?? areaDefs.length > 0) && areaDefs.length > 0) {
+      this.drawAreaOutlines(world, areaDefs, cam, x0, y0, x1, y1);
     }
 
     const portals = opts.portals ?? world.portals;
@@ -216,6 +212,83 @@ export class CanvasRenderer {
       x: cam.x * cs - this._viewW / 2,
       y: cam.y * cs - this._viewH / 2,
     });
+  }
+
+  private drawAreaFills(
+    world: World,
+    areaDefs: AreaDef[],
+    cam: Camera,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+  ): void {
+    const ctx = this.ctx;
+    const cs = cam.zoom;
+    const byId = new Map(areaDefs.map((a) => [a.id, a]));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const id = world.areaAt({ x, y });
+        if (!id) continue;
+        const def = byId.get(id);
+        if (!def) continue;
+        const { sx, sy } = this.worldToScreen(x, y, cam);
+        const rgb = areaRgb(def.color);
+        ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`;
+        ctx.fillRect(sx, sy, cs, cs);
+        // Diagonal hatch so fills stay readable on any ground color.
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(sx, sy, cs, cs);
+        ctx.clip();
+        ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.45)`;
+        ctx.lineWidth = Math.max(1, cs * 0.04);
+        const step = Math.max(4, cs * 0.22);
+        for (let i = -cs; i < cs * 2; i += step) {
+          ctx.beginPath();
+          ctx.moveTo(sx + i, sy);
+          ctx.lineTo(sx + i + cs, sy + cs);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+  }
+
+  /** Thin inner-edge outlines so area borders read in play without filling the floor. */
+  private drawAreaOutlines(
+    world: World,
+    areaDefs: AreaDef[],
+    cam: Camera,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+  ): void {
+    const ctx = this.ctx;
+    const cs = cam.zoom;
+    const byId = new Map(areaDefs.map((a) => [a.id, a]));
+    const t = Math.max(2, cs * 0.08);
+
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const id = world.areaAt({ x, y });
+        if (!id) continue;
+        const def = byId.get(id);
+        if (!def) continue;
+        const rgb = areaRgb(def.color);
+        ctx.fillStyle = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+        const { sx, sy } = this.worldToScreen(x, y, cam);
+        const n = y > 0 ? world.areaAt({ x, y: y - 1 }) : 0;
+        const e = x < world.width - 1 ? world.areaAt({ x: x + 1, y }) : 0;
+        const s = y < world.height - 1 ? world.areaAt({ x, y: y + 1 }) : 0;
+        const w = x > 0 ? world.areaAt({ x: x - 1, y }) : 0;
+        if (n !== id) ctx.fillRect(sx, sy, cs, t);
+        if (e !== id) ctx.fillRect(sx + cs - t, sy, t, cs);
+        if (s !== id) ctx.fillRect(sx, sy + cs - t, cs, t);
+        if (w !== id) ctx.fillRect(sx, sy, t, cs);
+      }
+    }
   }
 
   private drawPortals(
@@ -343,7 +416,8 @@ export class CanvasRenderer {
       ctx.stroke();
 
       const label = (word?.label ?? "?").toUpperCase();
-      const pad = Math.max(3, cs * 0.1);
+      // Use almost the full tile — previous padding left text looking tiny.
+      const pad = Math.max(2, cs * 0.06);
       fitLabel(ctx, label, x + cs / 2, y + cs / 2, bw - pad, bh - pad);
       return;
     }
@@ -508,11 +582,11 @@ function fitLabel(
 ): void {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  const minSize = 6;
-  let size = Math.floor(Math.min(maxHeight * 0.46, maxWidth * 0.42));
+  const minSize = 7;
+  let size = Math.floor(Math.min(maxHeight * 0.62, maxWidth * 0.55));
   size = Math.max(minSize, size);
 
-  const fontFor = (s: number) => `700 ${s}px "IBM Plex Sans", system-ui, sans-serif`;
+  const fontFor = (s: number) => `800 ${s}px "IBM Plex Sans", system-ui, sans-serif`;
 
   const fitsOneLine = (s: number) => {
     ctx.font = fontFor(s);
@@ -522,9 +596,9 @@ function fitLabel(
   while (size > minSize && !fitsOneLine(size)) size -= 1;
 
   ctx.font = fontFor(size);
-  ctx.lineWidth = Math.max(2, size * 0.18);
-  ctx.strokeStyle = "rgba(10, 12, 18, 0.85)";
-  ctx.fillStyle = "#111318";
+  ctx.lineWidth = Math.max(2, size * 0.2);
+  ctx.strokeStyle = "rgba(10, 12, 18, 0.88)";
+  ctx.fillStyle = "#0e1016";
 
   if (fitsOneLine(size) || text.length <= 5) {
     ctx.strokeText(text, cx, cy);
@@ -532,7 +606,6 @@ function fitLabel(
     return;
   }
 
-  // Two-line wrap for long words that still overflow after shrink.
   let breakAt = Math.ceil(text.length / 2);
   for (let i = Math.floor(text.length / 2); i < text.length - 1; i++) {
     if (text[i] === " " || text[i] === "-") {
@@ -559,4 +632,23 @@ function fitLabel(
   ctx.fillText(line1, cx, cy - gap / 2);
   ctx.strokeText(line2, cx, cy + gap / 2);
   ctx.fillText(line2, cx, cy + gap / 2);
+}
+
+function areaRgb(color: string): { r: number; g: number; b: number } {
+  const m = color.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+  if (m) {
+    return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
+  }
+  if (color.startsWith("#") && (color.length === 7 || color.length === 4)) {
+    const hex =
+      color.length === 4
+        ? `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`
+        : color;
+    return {
+      r: parseInt(hex.slice(1, 3), 16),
+      g: parseInt(hex.slice(3, 5), 16),
+      b: parseInt(hex.slice(5, 7), 16),
+    };
+  }
+  return { r: 100, g: 180, b: 220 };
 }

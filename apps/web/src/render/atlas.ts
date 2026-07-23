@@ -21,7 +21,7 @@ export const SHEEP_COLS = 4;
 export const SHEEP_ROWS = 4;
 
 /** Tight crop covering all walk frames (opaque content ~27×41–49×39). */
-const SHEEP_CROP = { x: 32, y: 36, w: 64, h: 56 };
+const SHEEP_CROP = { x: 36, y: 38, w: 56, h: 52 };
 
 export type SheepDir = "up" | "down" | "left" | "right";
 
@@ -95,9 +95,9 @@ export class AssetAtlas {
     const sx = col * SHEEP_FRAME + SHEEP_CROP.x;
     const sy = row * SHEEP_FRAME + SHEEP_CROP.y;
 
-    const dest = s * 0.92;
+    const dest = s * 1.05;
     const ox = dx + (s - dest) / 2;
-    const oy = dy + (s - dest) / 2 + s * 0.04;
+    const oy = dy + (s - dest) / 2 + s * 0.02;
 
     // Soft ground shadow for contrast on grass.
     ctx.save();
