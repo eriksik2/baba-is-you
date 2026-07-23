@@ -27,8 +27,10 @@ import {
 } from "../storage/save";
 
 const LERP_MS = 110;
-const FOLLOW = 0.15;
-const ZOOM_MIN = 12;
+const FOLLOW = 0.22;
+/** Play shows ~8–9 cells across the short axis — closer than fit-to-world. */
+const PLAY_CELLS = 8.5;
+const ZOOM_MIN = 14;
 const ZOOM_MAX = 96;
 const ZOOM_STEP = 1.2;
 const CHUNK = DEFAULT_CHUNK_SIZE;
@@ -41,6 +43,15 @@ export type AppApi = {
 
 function clampZoom(z: number): number {
   return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+}
+
+function playZoom(viewW: number, viewH: number): number {
+  const short = Math.max(120, Math.min(viewW, viewH));
+  return clampZoom(short / PLAY_CELLS);
+}
+
+function cellCenter(pos: { x: number; y: number }): { x: number; y: number } {
+  return { x: pos.x + 0.5, y: pos.y + 0.5 };
 }
 
 function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -94,12 +105,7 @@ export function mountPlay(api: AppApi): {
   let lerp = new Map<number, LerpState>();
   let raf = 0;
   let lastT = performance.now();
-  let camera: Camera = { x: 0, y: 0, zoom: 32 };
-  let userPan = false;
-
-  const pointers = new Map<number, { x: number; y: number }>();
-  let pinchStartDist = 0;
-  let pinchStartZoom = 32;
+  let camera: Camera = { x: 0, y: 0, zoom: 48 };
 
   function progressPortals(): Record<string, { unlocked?: boolean; completed?: boolean }> {
     const progress = loadProgress();
@@ -122,30 +128,51 @@ export function mountPlay(api: AppApi): {
     }
   }
 
-  function fitCamera(): void {
+  function youCenter(): { x: number; y: number } | null {
+    if (!session) return null;
+    const you = session.world.entitiesWithProperty("you")[0];
+    if (!you) return null;
+    // Prefer lerped draw position so the camera tracks the slide.
+    const anim = lerp.get(you.id as unknown as number);
+    if (anim) {
+      const now = performance.now();
+      const u = Math.max(0, Math.min(1, (now - anim.start) / anim.duration));
+      const eased = 1 - (1 - u) * (1 - u);
+      return {
+        x: anim.fromX + (anim.toX - anim.fromX) * eased + 0.5,
+        y: anim.fromY + (anim.toY - anim.fromY) * eased + 0.5,
+      };
+    }
+    return cellCenter(you.position);
+  }
+
+  function snapToYou(): void {
     if (!session) return;
-    userPan = false;
-    camera = renderer.cameraFitWorld(session.world);
+    const c = youCenter() ?? {
+      x: session.world.width / 2,
+      y: session.world.height / 2,
+    };
+    camera = { x: c.x, y: c.y, zoom: playZoom(renderer.viewW, renderer.viewH) };
   }
 
   function layout(): void {
     if (!session) return;
     const rect = boardShell.getBoundingClientRect();
     renderer.resizeViewport(Math.max(120, rect.width), Math.max(120, rect.height));
-    if (!userPan) {
-      camera = renderer.cameraFitWorld(session.world);
-    }
+    camera = {
+      ...camera,
+      zoom: playZoom(renderer.viewW, renderer.viewH),
+    };
   }
 
   function followYou(): void {
-    // Soft follow unless the player has taken the camera (pinch/zoom).
-    if (!session || userPan) return;
-    const you = session.world.entitiesWithProperty("you")[0];
-    if (!you) return;
+    if (!session) return;
+    const c = youCenter();
+    if (!c) return;
     camera = {
-      ...camera,
-      x: camera.x + (you.position.x - camera.x) * FOLLOW,
-      y: camera.y + (you.position.y - camera.y) * FOLLOW,
+      x: camera.x + (c.x - camera.x) * FOLLOW,
+      y: camera.y + (c.y - camera.y) * FOLLOW,
+      zoom: playZoom(renderer.viewW, renderer.viewH),
     };
   }
 
@@ -264,7 +291,6 @@ export function mountPlay(api: AppApi): {
   function open(doc: LevelDocument, opts?: { fromEditor?: boolean }): void {
     sourceDoc = structuredClone(doc);
     fromEditor = !!opts?.fromEditor;
-    userPan = false;
     const world = loadDocument(doc);
     const progress = loadProgress();
     if (doc.isOverworld && progress.overworldPos) {
@@ -280,6 +306,7 @@ export function mountPlay(api: AppApi): {
     refreshRules();
     api.showScreen("play");
     layout();
+    snapToYou();
     // Paint immediately so the first frame isn't a blank shell while rAF catches up.
     renderer.draw(session.world, {
       t: performance.now() / 1000,
@@ -292,59 +319,9 @@ export function mountPlay(api: AppApi): {
     });
     requestAnimationFrame(() => {
       layout();
+      snapToYou();
     });
   }
-
-  // --- Zoom buttons ---
-  screen.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      const dir = btn.dataset.zoom;
-      const factor = dir === "in" ? ZOOM_STEP : 1 / ZOOM_STEP;
-      camera = zoomAround(renderer, camera, factor, renderer.viewW / 2, renderer.viewH / 2);
-      userPan = true;
-    });
-  });
-
-  // --- Pinch zoom (one-finger swipe-to-move is handled by bindControls) ---
-  canvas.addEventListener("pointerdown", (ev) => {
-    if (ev.pointerType === "mouse" && ev.button !== 0) return;
-    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-
-    if (pointers.size === 2) {
-      const pts = [...pointers.values()];
-      pinchStartDist = Math.max(1, dist(pts[0]!, pts[1]!));
-      pinchStartZoom = camera.zoom;
-    }
-  });
-
-  canvas.addEventListener("pointermove", (ev) => {
-    if (!pointers.has(ev.pointerId)) return;
-    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-
-    if (pointers.size >= 2) {
-      const pts = [...pointers.values()];
-      const a = pts[0]!;
-      const b = pts[1]!;
-      const d = Math.max(1, dist(a, b));
-      const rect = canvas.getBoundingClientRect();
-      const m = mid(a, b);
-      const targetZoom = clampZoom(pinchStartZoom * (d / pinchStartDist));
-      const f = targetZoom / camera.zoom;
-      if (Math.abs(f - 1) > 0.001) {
-        camera = zoomAround(renderer, camera, f, m.x - rect.left, m.y - rect.top);
-        userPan = true;
-      }
-    }
-  });
-
-  const endPointer = (ev: PointerEvent) => {
-    pointers.delete(ev.pointerId);
-    if (pointers.size < 2) pinchStartDist = 0;
-  };
-
-  canvas.addEventListener("pointerup", endPointer);
-  canvas.addEventListener("pointercancel", endPointer);
 
   menuBtn.addEventListener("click", () => setMenuOpen(menuPanel.hidden));
   menuPanel.addEventListener("click", (ev) => {
@@ -353,7 +330,7 @@ export function mountPlay(api: AppApi): {
     const action = btn.dataset.menuAction;
     setMenuOpen(false);
     if (action === "restart") dispatch({ type: "restart" });
-    if (action === "fit") fitCamera();
+    if (action === "recenter") snapToYou();
     if (action === "exit") {
       if (fromEditor) api.showScreen("editor");
       else api.showScreen("menu");
@@ -523,13 +500,22 @@ export function mountEditor(api: AppApi): {
   let activelyPanning = false;
 
   function toolsOpen(): boolean {
-    return !toolbar.hidden && !toolbar.classList.contains("is-collapsed");
+    return screen.classList.contains("tools-open");
   }
 
   function setToolsOpen(open: boolean): void {
     toolbar.hidden = !open;
     toolbar.classList.toggle("is-collapsed", !open);
+    screen.classList.toggle("tools-open", open);
+    toolsBtn.classList.toggle("is-active", open);
     toolsBtn.setAttribute("aria-pressed", open ? "true" : "false");
+    toolsBtn.textContent = open ? "Board" : "Tools";
+    toolsBtn.setAttribute(
+      "aria-label",
+      open ? "Hide tools for full board view" : "Show editor tools",
+    );
+    const meta = document.querySelector<HTMLDetailsElement>("#editor-meta");
+    if (meta && !open) meta.open = false;
   }
 
   function worldFromDoc(): World {
@@ -825,8 +811,15 @@ export function mountEditor(api: AppApi): {
     requestAnimationFrame(() => {
       layoutAndFit(false);
       redraw();
+      requestAnimationFrame(() => {
+        layoutAndFit(false);
+        redraw();
+      });
     });
   });
+
+  // Start with tools visible so painting works immediately.
+  setToolsOpen(true);
 
   document.querySelector("#editor-toolbar")?.addEventListener("click", (ev) => {
     const t = (ev.target as HTMLElement).closest<HTMLElement>("[data-layer],[data-draw]");

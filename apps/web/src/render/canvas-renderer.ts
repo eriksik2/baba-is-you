@@ -3,21 +3,22 @@ import { atlas, type AssetAtlas, type SheepDir } from "./atlas";
 import { drawAutotile, MASK_E, MASK_N, MASK_S, MASK_W, neighborMask } from "./autotile";
 import { ParticleSystem } from "./particles";
 
+/** High-contrast fills so objects read over pastoral grass. */
 const PALETTE: Record<string, string> = {
-  baba: "#f4f0ea",
-  keke: "#e8785a",
-  wall: "#5a6a7e",
-  rock: "#c4a574",
-  flag: "#f0c75e",
+  baba: "#fff4e0",
+  keke: "#ff5a3a",
+  wall: "#7a8ca4",
+  rock: "#e0b078",
+  flag: "#ffd45a",
   water: "#3d7ea6",
-  lava: "#e85d3a",
-  skull: "#d0d5dd",
+  lava: "#ff5530",
+  skull: "#eef1f6",
   grass: "#6a9a5a",
   tile: "#3a4a5e",
   text: "#ffffff",
-  "text-noun": "#6ec6ff",
-  "text-property": "#ff7eb6",
-  "text-operator": "#f5f5f5",
+  "text-noun": "#3db4ff",
+  "text-property": "#ff5aad",
+  "text-operator": "#ffffff",
 };
 
 export type LerpState = {
@@ -103,19 +104,19 @@ export class CanvasRenderer {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 
-  /** Fit entire world in view; returns camera. */
+  /** Fit entire world in view; returns camera centered on the map. */
   cameraFitWorld(world: World, margin = 0.92): Camera {
     const zoom = Math.max(
-      12,
+      16,
       Math.min(
-        64,
+        72,
         Math.min(this._viewW / Math.max(1, world.width), this._viewH / Math.max(1, world.height)) *
           margin,
       ),
     );
     return {
-      x: (world.width - 1) / 2,
-      y: (world.height - 1) / 2,
+      x: world.width / 2,
+      y: world.height / 2,
       zoom,
     };
   }
@@ -316,21 +317,34 @@ export class CanvasRenderer {
     cellY: number,
   ): void {
     const ctx = this.ctx;
-    const inset = Math.max(2, cs * 0.08);
-    const eye = Math.max(1.5, cs * 0.05);
+    const inset = Math.max(2, cs * 0.07);
+    const eye = Math.max(1.5, cs * 0.055);
+    const strokeW = Math.max(1.5, cs * 0.055);
 
     if (e.kind === "text") {
       const td = world.textData.get(e.id);
       const word = td ? world.lexicon.getWord(td.wordId) : undefined;
       const color = PALETTE[word?.palette ?? "text-operator"] ?? "#fff";
+      const bx = x + inset;
+      const by = y + inset;
+      const bw = cs - inset * 2;
+      const bh = cs - inset * 2;
+      const r = Math.max(3, cs * 0.12);
+      roundRect(ctx, bx, by, bw, bh, r);
       ctx.fillStyle = color;
-      roundRect(ctx, x + inset, y + inset, cs - inset * 2, cs - inset * 2, Math.max(3, cs * 0.12));
       ctx.fill();
-      ctx.fillStyle = "#111";
-      ctx.font = `600 ${Math.max(9, Math.floor(cs * 0.26))}px "IBM Plex Sans", system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      wrapLabel(ctx, word?.label ?? "?", x + cs / 2, y + cs / 2, cs - inset * 2.5, cs);
+      ctx.lineWidth = strokeW;
+      ctx.strokeStyle = "rgba(10, 14, 20, 0.75)";
+      ctx.stroke();
+      // Inner highlight for pop against grass.
+      roundRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, Math.max(2, r - 1));
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.lineWidth = Math.max(1, strokeW * 0.45);
+      ctx.stroke();
+
+      const label = (word?.label ?? "?").toUpperCase();
+      const pad = Math.max(3, cs * 0.1);
+      fitLabel(ctx, label, x + cs / 2, y + cs / 2, bw - pad, bh - pad);
       return;
     }
 
@@ -338,7 +352,7 @@ export class CanvasRenderer {
       const dir = this.facing.get(e.id as unknown as number) ?? "down";
       const frame = moving ? Math.floor(t * 8) : 0;
       if (this.assets.sheep) this.assets.drawSheep(ctx, x, y, cs, dir, frame);
-      else this.drawFallbackCreature(ctx, x, y, cs, PALETTE.baba ?? "#f4f0ea", eye);
+      else this.drawFallbackCreature(ctx, x, y, cs, PALETTE.baba ?? "#fff4e0", eye);
       return;
     }
 
@@ -349,35 +363,56 @@ export class CanvasRenderer {
 
     const noun = world.lexicon.getNoun(e.noun);
     const color = PALETTE[noun?.palette ?? e.noun] ?? "#aaa";
-    ctx.fillStyle = color;
 
     if (e.noun === "keke") {
       this.drawFallbackCreature(ctx, x, y, cs, color, eye);
     } else if (e.noun === "flag") {
-      const poleX = x + cs * 0.35;
-      ctx.fillRect(poleX, y + cs * 0.2, Math.max(2, cs * 0.06), cs * 0.6);
+      const poleX = x + cs * 0.34;
+      const poleW = Math.max(2, cs * 0.07);
+      ctx.fillStyle = "#2a1e12";
+      ctx.fillRect(poleX, y + cs * 0.16, poleW, cs * 0.66);
+      ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.moveTo(poleX + Math.max(2, cs * 0.06), y + cs * 0.2);
-      ctx.lineTo(x + cs * 0.75, y + cs * 0.32);
-      ctx.lineTo(poleX + Math.max(2, cs * 0.06), y + cs * 0.44);
+      ctx.moveTo(poleX + poleW, y + cs * 0.16);
+      ctx.lineTo(x + cs * 0.82, y + cs * 0.3);
+      ctx.lineTo(poleX + poleW, y + cs * 0.44);
       ctx.closePath();
       ctx.fill();
+      ctx.strokeStyle = "rgba(20,16,8,0.65)";
+      ctx.lineWidth = strokeW * 0.7;
+      ctx.stroke();
     } else if (e.noun === "rock") {
       ctx.beginPath();
-      ctx.ellipse(x + cs / 2, y + cs / 2, cs * 0.3, cs * 0.26, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + cs / 2, y + cs / 2 + cs * 0.02, cs * 0.34, cs * 0.28, 0, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(40, 24, 10, 0.7)";
+      ctx.lineWidth = strokeW;
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.22)";
+      ctx.beginPath();
+      ctx.ellipse(x + cs / 2 - cs * 0.08, y + cs / 2 - cs * 0.06, cs * 0.12, cs * 0.08, -0.4, 0, Math.PI * 2);
       ctx.fill();
     } else if (e.noun === "skull") {
       ctx.beginPath();
-      ctx.ellipse(x + cs / 2, y + cs / 2 - cs * 0.02, cs * 0.28, cs * 0.3, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + cs / 2, y + cs / 2 - cs * 0.02, cs * 0.32, cs * 0.34, 0, 0, Math.PI * 2);
+      ctx.fillStyle = color;
       ctx.fill();
-      ctx.fillStyle = "#222";
+      ctx.strokeStyle = "rgba(20,20,28,0.7)";
+      ctx.lineWidth = strokeW;
+      ctx.stroke();
+      ctx.fillStyle = "#1a1a22";
       ctx.beginPath();
-      ctx.arc(x + cs / 2 - cs * 0.1, y + cs / 2 - cs * 0.05, eye * 1.2, 0, Math.PI * 2);
-      ctx.arc(x + cs / 2 + cs * 0.1, y + cs / 2 - cs * 0.05, eye * 1.2, 0, Math.PI * 2);
+      ctx.arc(x + cs / 2 - cs * 0.11, y + cs / 2 - cs * 0.05, eye * 1.35, 0, Math.PI * 2);
+      ctx.arc(x + cs / 2 + cs * 0.11, y + cs / 2 - cs * 0.05, eye * 1.35, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      roundRect(ctx, x + inset + 2, y + inset + 2, cs - inset * 2 - 4, cs - inset * 2 - 4, Math.max(4, cs * 0.16));
+      roundRect(ctx, x + inset + 1, y + inset + 1, cs - inset * 2 - 2, cs - inset * 2 - 2, Math.max(4, cs * 0.16));
+      ctx.fillStyle = color;
       ctx.fill();
+      ctx.strokeStyle = "rgba(10,14,20,0.65)";
+      ctx.lineWidth = strokeW;
+      ctx.stroke();
     }
   }
 
@@ -389,11 +424,19 @@ export class CanvasRenderer {
     color: string,
     eye: number,
   ): void {
-    ctx.fillStyle = color;
+    ctx.fillStyle = "rgba(20, 28, 18, 0.28)";
     ctx.beginPath();
-    ctx.ellipse(x + cs / 2, y + cs / 2 + cs * 0.04, cs * 0.32, cs * 0.36, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + cs / 2, y + cs * 0.82, cs * 0.28, cs * 0.1, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#222";
+
+    ctx.beginPath();
+    ctx.ellipse(x + cs / 2, y + cs / 2 + cs * 0.04, cs * 0.36, cs * 0.4, 0, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(20, 16, 10, 0.7)";
+    ctx.lineWidth = Math.max(1.5, cs * 0.055);
+    ctx.stroke();
+    ctx.fillStyle = "#1a1a22";
     ctx.beginPath();
     ctx.arc(x + cs / 2 - cs * 0.12, y + cs / 2 - cs * 0.04, eye, 0, Math.PI * 2);
     ctx.arc(x + cs / 2 + cs * 0.12, y + cs / 2 - cs * 0.04, eye, 0, Math.PI * 2);
@@ -408,26 +451,29 @@ export class CanvasRenderer {
     mask: number,
   ): void {
     const inset = Math.max(1, cs * 0.04);
-    ctx.fillStyle = PALETTE.wall ?? "#5a6a7e";
+    ctx.fillStyle = PALETTE.wall ?? "#7a8ca4";
     roundRect(ctx, x + inset, y + inset, cs - inset * 2, cs - inset * 2, 2);
     ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.strokeStyle = "rgba(12, 16, 24, 0.55)";
+    ctx.lineWidth = Math.max(1.5, cs * 0.05);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
     ctx.fillRect(x + cs * 0.18, y + cs * 0.18, cs * 0.64, cs * 0.64);
     const t = Math.max(1.5, cs * 0.08);
     if ((mask & MASK_N) === 0) {
-      ctx.fillStyle = "rgba(220,230,240,0.22)";
+      ctx.fillStyle = "rgba(240,245,255,0.28)";
       ctx.fillRect(x + inset, y + inset, cs - inset * 2, t);
     }
     if ((mask & MASK_W) === 0) {
-      ctx.fillStyle = "rgba(220,230,240,0.18)";
+      ctx.fillStyle = "rgba(240,245,255,0.2)";
       ctx.fillRect(x + inset, y + inset, t, cs - inset * 2);
     }
     if ((mask & MASK_S) === 0) {
-      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.fillStyle = "rgba(0,0,0,0.32)";
       ctx.fillRect(x + inset, y + cs - inset - t, cs - inset * 2, t);
     }
     if ((mask & MASK_E) === 0) {
-      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.fillStyle = "rgba(0,0,0,0.26)";
       ctx.fillRect(x + cs - inset - t, y + inset, t, cs - inset * 2);
     }
   }
@@ -451,20 +497,66 @@ function roundRect(
   ctx.closePath();
 }
 
-function wrapLabel(
+/** Shrink / wrap text so the label stays inside the tile at any zoom. */
+function fitLabel(
   ctx: CanvasRenderingContext2D,
   text: string,
   cx: number,
   cy: number,
   maxWidth: number,
-  cell: number,
+  maxHeight: number,
 ): void {
-  if (ctx.measureText(text).width <= maxWidth || text.length <= 4) {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const minSize = 6;
+  let size = Math.floor(Math.min(maxHeight * 0.46, maxWidth * 0.42));
+  size = Math.max(minSize, size);
+
+  const fontFor = (s: number) => `700 ${s}px "IBM Plex Sans", system-ui, sans-serif`;
+
+  const fitsOneLine = (s: number) => {
+    ctx.font = fontFor(s);
+    return ctx.measureText(text).width <= maxWidth;
+  };
+
+  while (size > minSize && !fitsOneLine(size)) size -= 1;
+
+  ctx.font = fontFor(size);
+  ctx.lineWidth = Math.max(2, size * 0.18);
+  ctx.strokeStyle = "rgba(10, 12, 18, 0.85)";
+  ctx.fillStyle = "#111318";
+
+  if (fitsOneLine(size) || text.length <= 5) {
+    ctx.strokeText(text, cx, cy);
     ctx.fillText(text, cx, cy);
     return;
   }
-  const mid = Math.ceil(text.length / 2);
-  const gap = Math.max(5, cell * 0.14);
-  ctx.fillText(text.slice(0, mid), cx, cy - gap / 2);
-  ctx.fillText(text.slice(mid), cx, cy + gap / 2);
+
+  // Two-line wrap for long words that still overflow after shrink.
+  let breakAt = Math.ceil(text.length / 2);
+  for (let i = Math.floor(text.length / 2); i < text.length - 1; i++) {
+    if (text[i] === " " || text[i] === "-") {
+      breakAt = i + 1;
+      break;
+    }
+  }
+  const line1 = text.slice(0, breakAt).trim();
+  const line2 = text.slice(breakAt).trim();
+  while (size > minSize) {
+    ctx.font = fontFor(size);
+    if (
+      ctx.measureText(line1).width <= maxWidth &&
+      ctx.measureText(line2).width <= maxWidth &&
+      size * 2.15 <= maxHeight
+    ) {
+      break;
+    }
+    size -= 1;
+  }
+  ctx.font = fontFor(size);
+  const gap = size * 1.05;
+  ctx.strokeText(line1, cx, cy - gap / 2);
+  ctx.fillText(line1, cx, cy - gap / 2);
+  ctx.strokeText(line2, cx, cy + gap / 2);
+  ctx.fillText(line2, cx, cy + gap / 2);
 }

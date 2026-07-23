@@ -6,7 +6,7 @@ Groundwork for a **Baba Is You**-inspired puzzle game: grid levels, turn-based c
 
 https://eriksik2.github.io/baba-is-you/
 
-Hard-refresh after updates. Play always shows Undo + d-pad (swipe to move). Pinch or **+/−** to zoom; ☰ → Fit / Restart / Exit. In the **editor**, use **Tools** to collapse the palette for a fuller board view.
+Hard-refresh after updates. Play follows you at a fixed zoom (no player zoom). Undo + d-pad always on. Editor: **Board** hides the tool chrome so the canvas fills the screen (drag/pinch); **Tools** brings paint UI back.
 
 ## Format notes
 
