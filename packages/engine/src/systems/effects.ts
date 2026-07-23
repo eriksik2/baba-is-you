@@ -6,14 +6,12 @@ import type { PropertyRegistry } from "../properties";
  * Returns whether any entity changed (triggers rule reparse).
  */
 export function applyTransforms(world: World): boolean {
-  const transforms = world.rules.transformsByNoun;
-  if (transforms.size === 0) return false;
-
   let changed = false;
   for (const e of [...world.entities.values()]) {
     if (!e.alive || e.kind !== "object") continue;
+    const area = world.areaAt(e.position);
+    const target = world.transformTarget(e.noun, area);
     // X IS X is a no-op (and in real Baba often means "survive transform").
-    const target = transforms.get(e.noun);
     if (!target || target === e.noun) continue;
     e.noun = target;
     changed = true;
@@ -28,10 +26,11 @@ export function resolveOverlaps(world: World, properties: PropertyRegistry): voi
   const ctx = { world };
   for (const e of [...world.entities.values()]) {
     if (!e.alive) continue;
-    const props = world.rules.propertiesByNoun.get(world.effectiveNoun(e));
-    if (!props) continue;
-    for (const p of props) {
-      properties.get(p)?.onResolve?.(e, ctx);
+    // Fire resolve for any property the entity currently has (global ∪ area).
+    for (const handler of properties.all()) {
+      if (world.hasProperty(e, handler.id)) {
+        handler.onResolve?.(e, ctx);
+      }
     }
   }
 

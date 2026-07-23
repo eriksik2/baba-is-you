@@ -7,6 +7,8 @@ import type { Lexicon } from "../lexicon";
 import { createDefaultLexicon } from "../lexicon";
 import { parseRules, nounHasProperty, type RuleSet, type TextTile } from "../rules";
 import type { GameStatus, Vec2 } from "../types";
+import type { AreaDef, GlobalRuleSpec, LevelDocument } from "../campaign/types";
+import { rulesFromGlobalSpecs } from "../campaign/global-rules";
 
 /** Extra data for text entities. */
 export interface TextData {
@@ -15,18 +17,34 @@ export interface TextData {
 
 /**
  * Authoritative simulation world.
- * Rendering and input sit outside; they only read / send intents.
+ * Supports global rules + per-area rule scopes (novel vs classic Baba).
  */
 export class World {
   readonly lexicon: Lexicon;
   readonly entities: EntityStore;
   readonly grid: Grid;
-  /** wordId per text entity */
   readonly textData = new Map<EntityId, TextData>();
+
+  /** Visual-only tile keys (row-major). */
+  background: string[] = [];
+  /** Rule-area id per cell (0 = no local area). */
+  areaMap: number[] = [];
+  areaDefs: AreaDef[] = [];
+  globalRuleSpecs: GlobalRuleSpec[] = [];
+
+  /** Merged view used by older call sites; prefer hasProperty. */
   rules: RuleSet;
+  /** Rules that apply everywhere (including implicit TEXT IS PUSH). */
+  globalRules: RuleSet;
+  /** Local rules keyed by area id. */
+  rulesByArea = new Map<number, RuleSet>();
+
   status: GameStatus = "playing";
-  /** Bumps whenever rules are rebuilt — UI can highlight active sentences. */
   rulesGeneration = 0;
+
+  documentId = "";
+  isOverworld = false;
+  portals: NonNullable<LevelDocument["portals"]> = [];
 
   constructor(
     width: number,
@@ -38,7 +56,10 @@ export class World {
     this.lexicon = lexicon;
     this.entities = entities;
     this.grid = grid ?? new Grid(width, height);
+    this.background = Array.from({ length: width * height }, () => "grass");
+    this.areaMap = Array.from({ length: width * height }, () => 0);
     this.rules = emptyRules();
+    this.globalRules = emptyRules();
   }
 
   get width(): number {
@@ -47,6 +68,30 @@ export class World {
 
   get height(): number {
     return this.grid.height;
+  }
+
+  cellIndex(x: number, y: number): number {
+    return y * this.width + x;
+  }
+
+  areaAt(pos: Vec2): number {
+    if (!this.grid.inBounds(pos)) return 0;
+    return this.areaMap[this.cellIndex(pos.x, pos.y)] ?? 0;
+  }
+
+  setArea(pos: Vec2, areaId: number): void {
+    if (!this.grid.inBounds(pos)) return;
+    this.areaMap[this.cellIndex(pos.x, pos.y)] = areaId;
+  }
+
+  bgAt(pos: Vec2): string {
+    if (!this.grid.inBounds(pos)) return "grass";
+    return this.background[this.cellIndex(pos.x, pos.y)] ?? "grass";
+  }
+
+  setBg(pos: Vec2, tile: string): void {
+    if (!this.grid.inBounds(pos)) return;
+    this.background[this.cellIndex(pos.x, pos.y)] = tile;
   }
 
   spawnObject(noun: NounId, position: Vec2, layer = 0): EntityRecord {
@@ -62,7 +107,6 @@ export class World {
 
   spawnText(wordId: WordId, position: Vec2, layer = 1): EntityRecord {
     const word = this.lexicon.requireWord(wordId);
-    // Text entities use noun "text" for property queries (TEXT IS PUSH).
     const e = this.entities.create({
       kind: "text",
       noun: asNounId("text"),
@@ -89,19 +133,41 @@ export class World {
   }
 
   rebuildRules(): void {
-    const texts: TextTile[] = [];
+    this.globalRules = rulesFromGlobalSpecs(this.globalRuleSpecs, this.lexicon);
+
+    const textsByArea = new Map<number, TextTile[]>();
     for (const e of this.entities.values()) {
       if (e.kind !== "text") continue;
       const td = this.textData.get(e.id);
       if (!td) continue;
-      texts.push({ wordId: td.wordId, x: e.position.x, y: e.position.y });
+      const area = this.areaAt(e.position);
+      const list = textsByArea.get(area) ?? [];
+      list.push({ wordId: td.wordId, x: e.position.x, y: e.position.y });
+      textsByArea.set(area, list);
     }
-    this.rules = parseRules({
-      lexicon: this.lexicon,
-      width: this.width,
-      height: this.height,
-      texts,
-    });
+
+    this.rulesByArea.clear();
+    const mergedFeatures = [...this.globalRules.features];
+
+    for (const [areaId, texts] of textsByArea) {
+      const local = parseRules({
+        lexicon: this.lexicon,
+        width: this.width,
+        height: this.height,
+        texts,
+        areaAt: (x, y) => this.areaAt({ x, y }),
+        includeImplicitTextPush: false,
+      });
+      this.rulesByArea.set(areaId, local);
+      mergedFeatures.push(...local.features);
+    }
+
+    // Convenience aggregate (not used for evaluation when areas matter).
+    this.rules = {
+      features: mergedFeatures,
+      propertiesByNoun: this.globalRules.propertiesByNoun,
+      transformsByNoun: this.globalRules.transformsByNoun,
+    };
     this.rulesGeneration++;
   }
 
@@ -109,14 +175,39 @@ export class World {
     return e.kind === "text" ? asNounId("text") : e.noun;
   }
 
+  /** Property query: global rules ∪ rules of the entity's current area. */
   hasProperty(e: EntityRecord, property: PropertyId | string): boolean {
     const prop = typeof property === "string" ? asPropertyId(property) : property;
-    return nounHasProperty(this.rules, this.effectiveNoun(e), prop);
+    const noun = this.effectiveNoun(e);
+    if (nounHasProperty(this.globalRules, noun, prop)) return true;
+    const area = this.areaAt(e.position);
+    const local = this.rulesByArea.get(area);
+    if (local && nounHasProperty(local, noun, prop)) return true;
+    return false;
+  }
+
+  /** Transform target for a noun in a given area (global ∪ local). */
+  transformTarget(noun: NounId, areaId: number): NounId | undefined {
+    const local = this.rulesByArea.get(areaId)?.transformsByNoun.get(noun);
+    if (local) return local;
+    return this.globalRules.transformsByNoun.get(noun);
   }
 
   entitiesWithProperty(property: PropertyId | string): EntityRecord[] {
     const prop = typeof property === "string" ? asPropertyId(property) : property;
     return this.entities.filter((e) => e.alive && this.hasProperty(e, prop));
+  }
+
+  activeFeaturesForDisplay(): string[] {
+    const keys = new Set<string>();
+    for (const f of this.globalRules.features) {
+      if (f.key === "text is push") continue;
+      keys.add(f.key);
+    }
+    for (const rs of this.rulesByArea.values()) {
+      for (const f of rs.features) keys.add(f.key);
+    }
+    return [...keys];
   }
 
   clone(): World {
@@ -130,9 +221,18 @@ export class World {
     for (const [id, td] of this.textData) {
       w.textData.set(id, { ...td });
     }
+    w.background = [...this.background];
+    w.areaMap = [...this.areaMap];
+    w.areaDefs = this.areaDefs.map((a) => ({ ...a }));
+    w.globalRuleSpecs = this.globalRuleSpecs.map((g) => ({ ...g }));
     w.rules = this.rules;
+    w.globalRules = this.globalRules;
+    w.rulesByArea = new Map(this.rulesByArea);
     w.status = this.status;
     w.rulesGeneration = this.rulesGeneration;
+    w.documentId = this.documentId;
+    w.isOverworld = this.isOverworld;
+    w.portals = this.portals.map((p) => ({ ...p }));
     return w;
   }
 }

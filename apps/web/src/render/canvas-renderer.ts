@@ -61,12 +61,20 @@ export interface RenderOptions {
 export class CanvasRenderer {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly assets: AssetAtlas;
-  private cellSize: number;
-  private padding: number;
+  private _cellSize: number;
+  private _padding: number;
   private dpr = 1;
   private readonly facing = new Map<number, SheepDir>();
 
   readonly particles = new ParticleSystem();
+
+  get cellSize(): number {
+    return this._cellSize;
+  }
+
+  get padding(): number {
+    return this._padding;
+  }
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -75,8 +83,8 @@ export class CanvasRenderer {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2D canvas unavailable");
     this.ctx = ctx;
-    this.cellSize = options.cellSize ?? 48;
-    this.padding = options.padding ?? 16;
+    this._cellSize = options.cellSize ?? 48;
+    this._padding = options.padding ?? 16;
     this.assets = options.assets ?? atlas;
   }
 
@@ -93,8 +101,8 @@ export class CanvasRenderer {
     const cellH = (maxCssHeight - pad * 2) / rows;
     const cell = Math.max(18, Math.floor(Math.min(cellW, cellH, 64)));
 
-    this.cellSize = cell;
-    this.padding = pad;
+    this._cellSize = cell;
+    this._padding = pad;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
 
     const cssW = cols * cell + pad * 2;

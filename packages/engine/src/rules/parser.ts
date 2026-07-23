@@ -48,6 +48,13 @@ export interface ParseContext {
   readonly width: number;
   readonly height: number;
   readonly texts: readonly TextTile[];
+  /**
+   * Optional cell→area lookup. Sentence walks stop at area boundaries;
+   * features are tagged with that area id for scoped evaluation.
+   */
+  readonly areaAt?: (x: number, y: number) => number;
+  /** When false, skip the implicit TEXT IS PUSH feature (used for area passes). */
+  readonly includeImplicitTextPush?: boolean;
 }
 
 function textMap(texts: readonly TextTile[]): Map<string, TextTile[]> {
@@ -67,7 +74,8 @@ function cellKey(x: number, y: number): string {
 
 export function parseRules(ctx: ParseContext): RuleSet {
   const byCell = textMap(ctx.texts);
-  const features: Feature[] = [IMPLICIT_TEXT_PUSH];
+  const features: Feature[] =
+    ctx.includeImplicitTextPush === false ? [] : [IMPLICIT_TEXT_PUSH];
 
   const nounStarts = ctx.texts.filter((t) => {
     const def = ctx.lexicon.getWord(t.wordId);
@@ -145,7 +153,11 @@ function collectSequence(
   let y = start.y + dy;
   let seenIs = false;
 
+  const startArea = ctx.areaAt?.(start.x, start.y) ?? 0;
+
   while (x < ctx.width && y < ctx.height) {
+    if (ctx.areaAt && ctx.areaAt(x, y) !== startArea) break;
+
     const tiles = byCell.get(cellKey(x, y));
     if (!tiles || tiles.length === 0) break;
 

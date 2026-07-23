@@ -1,95 +1,141 @@
 import "./styles.css";
 import {
-  GameSession,
-  LEVEL_0_BABA_IS_YOU,
-  loadLevel,
+  CAMPAIGN_LEVELS,
+  OVERWORLD,
+  type LevelDocument,
 } from "@baba/engine";
-import { CanvasRenderer } from "./render/canvas-renderer";
-import { bindControls } from "./input/controls";
+import { atlas, CREDITS } from "./render/atlas";
+import { mountEditor, mountPlay, type AppApi } from "./screens/play-editor";
+import { findLevel, loadCustomLevels, loadProgress } from "./storage/save";
 
-const canvas = document.querySelector<HTMLCanvasElement>("#game");
-const boardShell = document.querySelector<HTMLElement>(".board-shell");
-const rulesList = document.querySelector<HTMLUListElement>("#rules-list");
-const statusEl = document.querySelector<HTMLParagraphElement>("#status");
-const levelName = document.querySelector<HTMLParagraphElement>("#level-name");
-const app = document.querySelector<HTMLElement>("#app");
+const screens = {
+  menu: document.querySelector<HTMLElement>("#screen-menu")!,
+  play: document.querySelector<HTMLElement>("#screen-play")!,
+  "editor-hub": document.querySelector<HTMLElement>("#screen-editor-hub")!,
+  editor: document.querySelector<HTMLElement>("#screen-editor")!,
+};
 
-if (!canvas || !boardShell || !rulesList || !statusEl || !levelName || !app) {
-  throw new Error("Missing DOM nodes");
-}
-
-const world = loadLevel(LEVEL_0_BABA_IS_YOU);
-const session = new GameSession(world);
-const renderer = new CanvasRenderer(canvas);
-
-levelName.textContent = LEVEL_0_BABA_IS_YOU.name;
-
-function layoutAndDraw(): void {
-  const rect = boardShell!.getBoundingClientRect();
-  // Leave a little breathing room so the border doesn't clip.
-  const maxW = Math.max(160, rect.width - 4);
-  const maxH = Math.max(160, rect.height - 4);
-  renderer.fit(session.world, maxW, maxH);
-  renderer.draw(session.world);
-}
-
-function refreshUi(): void {
-  rulesList!.innerHTML = "";
-  for (const f of session.world.rules.features) {
-    if (f.key === "text is push") continue;
-    const li = document.createElement("li");
-    li.textContent = f.key;
-    rulesList!.appendChild(li);
+function showScreen(id: keyof typeof screens): void {
+  for (const [key, el] of Object.entries(screens)) {
+    const active = key === id;
+    el.classList.toggle("is-active", active);
+    el.hidden = !active;
   }
-
-  if (session.world.status === "won") {
-    statusEl!.textContent = "Nice!";
-  } else if (session.world.status === "lost") {
-    statusEl!.textContent = "Oops — Restart";
-  } else {
-    statusEl!.textContent = "";
-  }
+  // close hamburger when leaving play
+  const panel = document.querySelector<HTMLElement>("#hamburger-panel");
+  if (panel) panel.hidden = true;
 }
 
-function refresh(): void {
-  layoutAndDraw();
-  refreshUi();
-}
-
-bindControls(
-  (intent) => {
-    session.dispatch(intent);
-    refresh();
+const api: AppApi = {
+  showScreen,
+  openLevel(doc, opts) {
+    play.open(doc, opts?.fromEditor ? { fromEditor: true } : {});
   },
-  { root: app, swipeTarget: canvas },
-);
+  openOverworld() {
+    const doc = findLevel("overworld") ?? OVERWORLD;
+    play.open(doc);
+  },
+};
 
-session.events.on("won", () => {
-  statusEl!.textContent = "Nice!";
+const play = mountPlay(api);
+const editor = mountEditor(api);
+
+document.querySelector("[data-action='play']")?.addEventListener("click", () => {
+  api.openOverworld();
 });
 
-const ro = new ResizeObserver(() => {
-  layoutAndDraw();
-});
-ro.observe(boardShell);
-
-window.addEventListener("orientationchange", () => {
-  // iOS often reports sizes a tick late.
-  window.setTimeout(layoutAndDraw, 120);
+document.querySelector("[data-action='editor']")?.addEventListener("click", () => {
+  showScreen("editor-hub");
+  hidePicker();
 });
 
-// Prevent pull-to-refresh / accidental page scroll while interacting with the game chrome.
+document.querySelector("[data-action='credits']")?.addEventListener("click", () => {
+  const note = document.querySelector("#menu-note");
+  if (note) note.textContent = CREDITS;
+});
+
+document.querySelector("[data-action='back-menu']")?.addEventListener("click", () => {
+  showScreen("menu");
+});
+
+document.querySelector("[data-action='editor-new']")?.addEventListener("click", () => {
+  editor.newBlank();
+});
+
+document.querySelector("[data-action='editor-load-campaign']")?.addEventListener("click", () => {
+  showPicker(
+    CAMPAIGN_LEVELS.map((l) => ({ id: l.id, label: `${l.name} (${l.id})` })),
+    (id) => {
+      const doc = findLevel(id);
+      if (doc) editor.openDoc(structuredClone(doc) as LevelDocument);
+    },
+  );
+});
+
+document.querySelector("[data-action='editor-load-custom']")?.addEventListener("click", () => {
+  const custom = loadCustomLevels();
+  if (!custom.length) {
+    const note = document.querySelector("#menu-note");
+    showScreen("menu");
+    if (note) note.textContent = "No saved levels yet — create one with New.";
+    return;
+  }
+  showPicker(
+    custom.map((l) => ({ id: l.id, label: l.name })),
+    (id) => {
+      const doc = custom.find((c) => c.id === id);
+      if (doc) editor.openDoc(structuredClone(doc));
+    },
+  );
+});
+
+function hidePicker(): void {
+  const picker = document.querySelector<HTMLElement>("#editor-picker");
+  if (picker) {
+    picker.hidden = true;
+    picker.innerHTML = "";
+  }
+}
+
+function showPicker(
+  items: Array<{ id: string; label: string }>,
+  onPick: (id: string) => void,
+): void {
+  const picker = document.querySelector<HTMLElement>("#editor-picker")!;
+  picker.hidden = false;
+  picker.innerHTML = "";
+  for (const item of items) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = item.label;
+    b.addEventListener("click", () => {
+      hidePicker();
+      onPick(item.id);
+    });
+    picker.appendChild(b);
+  }
+}
+
+// Prevent pull-to-refresh while interacting with game chrome.
 document.addEventListener(
   "touchmove",
   (ev) => {
     const t = ev.target;
     if (!(t instanceof Element)) return;
-    if (t.closest("#rules-list")) return;
-    if (t.closest(".board-shell") || t.closest(".touch-dock")) {
+    if (t.closest("#rules-list") || t.closest(".tile-drawer") || t.closest(".picker-list")) return;
+    if (t.closest(".board-shell") || t.closest(".touch-dock") || t.closest("#screen-menu")) {
+      if (t.closest("#screen-menu")) return;
       ev.preventDefault();
     }
   },
   { passive: false },
 );
 
-refresh();
+void atlas.ready;
+const progress = loadProgress();
+const note = document.querySelector("#menu-note");
+if (note && progress.completedLevels.length) {
+  note.textContent = `Cleared ${progress.completedLevels.length} level(s).`;
+}
+
+showScreen("menu");

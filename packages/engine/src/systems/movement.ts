@@ -66,14 +66,13 @@ export function tryMove(
     pushed.push(...res.movers);
   }
 
-  // Re-check non-push stop after pushes (cell may have changed — still same check).
-  // Enter hooks for remaining occupants.
+  // Enter hooks for remaining occupants (property-plugin based).
   const afterPushOccupants = world.grid.entitiesAt(dest, world.entities);
   for (const occ of afterPushOccupants) {
     if (occ.id === entity.id) continue;
-    for (const prop of world.rules.propertiesByNoun.get(world.effectiveNoun(occ)) ?? []) {
-      const handler = properties.get(prop);
-      if (handler?.onBeforeEnter && !handler.onBeforeEnter(entity, occ, ctx)) {
+    for (const handler of properties.all()) {
+      if (!world.hasProperty(occ, handler.id)) continue;
+      if (handler.onBeforeEnter && !handler.onBeforeEnter(entity, occ, ctx)) {
         return { moved: false, movers: [] };
       }
     }
@@ -87,8 +86,9 @@ export function tryMove(
   const landedWith = world.grid.entitiesAt(dest, world.entities);
   for (const occ of landedWith) {
     if (occ.id === entity.id) continue;
-    for (const prop of world.rules.propertiesByNoun.get(world.effectiveNoun(occ)) ?? []) {
-      properties.get(prop)?.onAfterEnter?.(entity, occ, ctx);
+    for (const handler of properties.all()) {
+      if (!world.hasProperty(occ, handler.id)) continue;
+      handler.onAfterEnter?.(entity, occ, ctx);
     }
   }
 

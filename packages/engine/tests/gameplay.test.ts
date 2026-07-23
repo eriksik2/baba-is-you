@@ -126,8 +126,14 @@ baba!,skull!,,,,
 
   test("level 0 loads with expected rules", () => {
     const world = loadLevel(LEVEL_0_BABA_IS_YOU);
-    expect(world.rules.propertiesByNoun.get(asNounId("baba"))?.has(asPropertyId("you"))).toBe(true);
-    expect(world.rules.propertiesByNoun.get(asNounId("wall"))?.has(asPropertyId("stop"))).toBe(true);
+    const baba = world.entities.filter(
+      (e) => e.kind === "object" && e.noun === asNounId("baba"),
+    )[0]!;
+    const wall = world.entities.filter(
+      (e) => e.kind === "object" && e.noun === asNounId("wall"),
+    )[0]!;
+    expect(world.hasProperty(baba, asPropertyId("you"))).toBe(true);
+    expect(world.hasProperty(wall, asPropertyId("stop"))).toBe(true);
     expect(world.entitiesWithProperty("you").length).toBe(1);
   });
 

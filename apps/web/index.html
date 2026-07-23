@@ -9,8 +9,7 @@
     <meta name="theme-color" content="#1a2332" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="description" content="Baba — a Baba Is You–inspired puzzle you can play on phone or desktop." />
+    <meta name="description" content="Baba — pastoral puzzle adventure with rule areas." />
     <title>Baba</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -21,58 +20,132 @@
   </head>
   <body>
     <div id="app">
-      <header class="top">
-        <div class="top-text">
-          <h1 class="brand">Baba</h1>
-          <p class="tagline" id="level-name">Loading…</p>
+      <!-- MAIN MENU -->
+      <section id="screen-menu" class="screen is-active" data-screen="menu">
+        <div class="menu-hero">
+          <h1 class="brand brand-xl">Baba</h1>
+          <p class="menu-sub">Words make the world.</p>
         </div>
-        <p id="status" class="status" role="status"></p>
-      </header>
-
-      <section class="rules-bar" aria-label="Active rules">
-        <h2 class="sr-only">Rules</h2>
-        <ul id="rules-list"></ul>
+        <nav class="menu-nav">
+          <button type="button" class="menu-btn primary" data-action="play">Play</button>
+          <button type="button" class="menu-btn" data-action="editor">Editor</button>
+          <button type="button" class="menu-btn ghost" data-action="credits">Credits</button>
+        </nav>
+        <p id="menu-note" class="menu-note"></p>
       </section>
 
-      <div class="stage">
-        <div class="board-shell">
-          <canvas id="game" width="320" height="320" aria-label="Game board. Swipe to move."></canvas>
+      <!-- PLAY / OVERWORLD -->
+      <section id="screen-play" class="screen" data-screen="play" hidden>
+        <header class="play-top">
+          <div class="top-text">
+            <h1 class="brand">Baba</h1>
+            <p class="tagline" id="level-name">…</p>
+          </div>
+          <div class="top-actions">
+            <p id="status" class="status" role="status"></p>
+            <button type="button" class="icon-btn" id="btn-menu" aria-label="Menu" aria-expanded="false">
+              <span class="burger" aria-hidden="true"></span>
+            </button>
+          </div>
+        </header>
+
+        <div id="hamburger-panel" class="hamburger-panel" hidden>
+          <button type="button" data-menu-action="restart">Restart</button>
+          <button type="button" data-menu-action="exit">Exit</button>
         </div>
 
-        <aside class="panel desktop-only">
-          <h2>Controls</h2>
-          <ul class="controls-help">
-            <li><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> / <kbd>WASD</kbd> move</li>
-            <li><kbd>Z</kbd> undo · <kbd>R</kbd> restart · <kbd>Space</kbd> wait</li>
-            <li>On phone: swipe the board or use the pad</li>
-          </ul>
-        </aside>
-      </div>
+        <section class="rules-bar" aria-label="Active rules">
+          <ul id="rules-list"></ul>
+        </section>
 
-      <div class="touch-dock" aria-label="Touch controls">
-        <div class="action-row">
-          <button type="button" class="btn action" data-intent="undo" aria-label="Undo">Undo</button>
-          <button type="button" class="btn action" data-intent="wait" aria-label="Wait">Wait</button>
-          <button type="button" class="btn action danger" data-intent="restart" aria-label="Restart">
-            Restart
-          </button>
+        <div class="stage">
+          <div class="board-shell">
+            <canvas id="game" width="320" height="320" aria-label="Game board. Swipe to move."></canvas>
+          </div>
         </div>
-        <div class="dpad" role="group" aria-label="Move">
-          <button type="button" class="btn pad" data-intent="up" aria-label="Up" style="grid-area: up">
-            <span aria-hidden="true">▲</span>
-          </button>
-          <button type="button" class="btn pad" data-intent="left" aria-label="Left" style="grid-area: left">
-            <span aria-hidden="true">◀</span>
-          </button>
-          <div class="pad-hub" style="grid-area: hub" aria-hidden="true"></div>
-          <button type="button" class="btn pad" data-intent="right" aria-label="Right" style="grid-area: right">
-            <span aria-hidden="true">▶</span>
-          </button>
-          <button type="button" class="btn pad" data-intent="down" aria-label="Down" style="grid-area: down">
-            <span aria-hidden="true">▼</span>
-          </button>
+
+        <div class="touch-dock" aria-label="Touch controls">
+          <button type="button" class="btn undo-fab" data-intent="undo" aria-label="Undo">Undo</button>
+          <div class="dpad" role="group" aria-label="Move">
+            <button type="button" class="btn pad" data-intent="up" aria-label="Up" style="grid-area: up">
+              <span aria-hidden="true">▲</span>
+            </button>
+            <button type="button" class="btn pad" data-intent="left" aria-label="Left" style="grid-area: left">
+              <span aria-hidden="true">◀</span>
+            </button>
+            <button type="button" class="btn pad hub-wait" data-intent="wait" aria-label="Wait" style="grid-area: hub">
+              <span aria-hidden="true">●</span>
+            </button>
+            <button type="button" class="btn pad" data-intent="right" aria-label="Right" style="grid-area: right">
+              <span aria-hidden="true">▶</span>
+            </button>
+            <button type="button" class="btn pad" data-intent="down" aria-label="Down" style="grid-area: down">
+              <span aria-hidden="true">▼</span>
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <!-- EDITOR HUB -->
+      <section id="screen-editor-hub" class="screen" data-screen="editor-hub" hidden>
+        <header class="subhead">
+          <button type="button" class="text-btn" data-action="back-menu">← Back</button>
+          <h2>Editor</h2>
+        </header>
+        <nav class="menu-nav">
+          <button type="button" class="menu-btn primary" data-action="editor-new">New level</button>
+          <button type="button" class="menu-btn" data-action="editor-load-campaign">Load campaign…</button>
+          <button type="button" class="menu-btn" data-action="editor-load-custom">Load saved…</button>
+        </nav>
+        <div id="editor-picker" class="picker-list" hidden></div>
+      </section>
+
+      <!-- EDITOR WORKSPACE -->
+      <section id="screen-editor" class="screen" data-screen="editor" hidden>
+        <header class="editor-top">
+          <button type="button" class="text-btn" data-action="editor-back">← Hub</button>
+          <input id="editor-name" class="editor-name" maxlength="40" aria-label="Level name" />
+          <div class="editor-top-btns">
+            <button type="button" class="chip-btn" data-action="editor-test">Test</button>
+            <button type="button" class="chip-btn primary" data-action="editor-save">Save</button>
+          </div>
+        </header>
+
+        <div class="editor-toolbar" id="editor-toolbar">
+          <div class="tool-group" role="tablist" aria-label="Layer">
+            <button type="button" class="chip-btn is-active" data-layer="objects">Objects</button>
+            <button type="button" class="chip-btn" data-layer="text">Text</button>
+            <button type="button" class="chip-btn" data-layer="background">Ground</button>
+            <button type="button" class="chip-btn" data-layer="areas">Areas</button>
+            <button type="button" class="chip-btn" data-layer="erase">Erase</button>
+          </div>
+          <div class="tool-group" role="tablist" aria-label="Draw mode">
+            <button type="button" class="chip-btn is-active" data-draw="paint">Paint</button>
+            <button type="button" class="chip-btn" data-draw="box">Box</button>
+            <button type="button" class="chip-btn" data-draw="fill">Bucket</button>
+          </div>
+        </div>
+
+        <div class="editor-body">
+          <aside class="tile-drawer" id="tile-drawer"></aside>
+          <div class="board-shell editor-board">
+            <canvas id="editor-canvas" width="320" height="320" aria-label="Editor board"></canvas>
+          </div>
+        </div>
+
+        <details class="globals-panel">
+          <summary>Global rules</summary>
+          <div id="global-rules-editor" class="global-rules-editor"></div>
+          <button type="button" class="chip-btn" data-action="add-global-rule">+ Rule</button>
+        </details>
+
+        <details class="globals-panel">
+          <summary>Areas</summary>
+          <div id="areas-editor" class="areas-editor"></div>
+          <button type="button" class="chip-btn" data-action="add-area">+ Area</button>
+          <p class="hint">Select an area, then paint/box on Areas layer. Adjacent paint extends it.</p>
+        </details>
+      </section>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

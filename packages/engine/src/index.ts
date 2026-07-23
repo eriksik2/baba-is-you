@@ -87,3 +87,33 @@ export {
   BUILTIN_LEVELS,
 } from "./level";
 export type { LevelDefinition, ParsedCellToken } from "./level";
+
+// Campaign / areas / documents
+export {
+  BG,
+  fill,
+  stamp,
+  stampArea,
+  createBlankLevel,
+  OVERWORLD,
+  LEVEL_1,
+  LEVEL_2,
+  LEVEL_3,
+  LEVEL_SPECIAL,
+  CAMPAIGN_LEVELS,
+  INITIAL_UNLOCKS,
+  loadDocument,
+  rulesFromGlobalSpecs,
+  createInitialProgress,
+  unlockAfterClear,
+  canEnterPortal,
+} from "./campaign";
+export type {
+  GlobalRuleSpec,
+  AreaDef,
+  LevelEntitySpec,
+  LevelDocument,
+  CampaignProgress,
+  BgTile,
+  Rect,
+} from "./campaign";
