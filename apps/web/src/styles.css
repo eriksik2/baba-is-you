@@ -86,11 +86,51 @@ body {
 }
 
 #screen-editor.is-active {
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "top"
+    "board";
   gap: 0.45rem;
   height: 100dvh;
   max-height: 100svh;
   overflow: hidden;
+}
+
+#screen-editor.tools-open.is-active {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "top"
+    "tools"
+    "board"
+    "meta";
+}
+
+#screen-editor .editor-top {
+  grid-area: top;
+}
+
+#screen-editor .editor-toolbar {
+  grid-area: tools;
+  display: none;
+}
+
+#screen-editor.tools-open .editor-toolbar {
+  display: grid;
+}
+
+#screen-editor .editor-body {
+  grid-area: board;
+  min-height: 0;
+}
+
+#screen-editor .globals-panel {
+  grid-area: meta;
+  display: none;
+}
+
+#screen-editor.tools-open .globals-panel {
+  display: block;
 }
 
 .brand {

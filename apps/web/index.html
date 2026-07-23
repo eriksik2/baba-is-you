@@ -49,7 +49,7 @@
 
         <div id="hamburger-panel" class="hamburger-panel" hidden>
           <button type="button" data-menu-action="restart">Restart</button>
-          <button type="button" data-menu-action="fit">Fit level</button>
+          <button type="button" data-menu-action="recenter">Recenter</button>
           <button type="button" data-menu-action="exit">Exit</button>
         </div>
 
@@ -59,11 +59,7 @@
 
         <div class="stage">
           <div class="board-shell">
-            <canvas id="game" width="320" height="320" aria-label="Game board. Swipe to move, pinch to zoom."></canvas>
-            <div class="zoom-fab" aria-label="Zoom">
-              <button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>
-              <button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button>
-            </div>
+            <canvas id="game" width="320" height="320" aria-label="Game board. Swipe or use the pad to move."></canvas>
           </div>
         </div>
 
@@ -107,13 +103,13 @@
           <button type="button" class="text-btn" data-action="editor-back">←</button>
           <input id="editor-name" class="editor-name" maxlength="40" aria-label="Level name" />
           <div class="editor-top-btns">
-            <button type="button" class="chip-btn" id="btn-editor-tools" aria-pressed="false">Tools</button>
+            <button type="button" class="chip-btn" id="btn-editor-tools" aria-pressed="true">Board</button>
             <button type="button" class="chip-btn" data-action="editor-test">Test</button>
             <button type="button" class="chip-btn primary" data-action="editor-save">Save</button>
           </div>
         </header>
 
-        <div class="editor-toolbar is-collapsed" id="editor-toolbar" hidden>
+        <div class="editor-toolbar" id="editor-toolbar">
           <div class="tool-group" role="tablist" aria-label="Layer">
             <button type="button" class="chip-btn is-active" data-layer="objects">Obj</button>
             <button type="button" class="chip-btn" data-layer="text">Text</button>
@@ -131,7 +127,7 @@
 
         <div class="editor-body">
           <div class="board-shell editor-board">
-            <canvas id="editor-canvas" width="320" height="320" aria-label="Editor board"></canvas>
+            <canvas id="editor-canvas" width="320" height="320" aria-label="Editor board. Tools open: paint. Board view: drag to pan, pinch to zoom."></canvas>
             <div class="zoom-fab" aria-label="Zoom">
               <button type="button" class="icon-btn" data-ed-zoom="in" aria-label="Zoom in">+</button>
               <button type="button" class="icon-btn" data-ed-zoom="out" aria-label="Zoom out">−</button>

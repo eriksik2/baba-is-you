@@ -14,11 +14,14 @@ export const PASTORAL_ROWS = 8;
 
 /**
  * LPC sheep walk sheet (512×512): 4 direction rows × 4 walk frames, 128×128 each.
- * Rows: up, right, down, left.
+ * Rows: up, right, down, left. Content is a small sprite inside each frame.
  */
 export const SHEEP_FRAME = 128;
 export const SHEEP_COLS = 4;
 export const SHEEP_ROWS = 4;
+
+/** Tight crop covering all walk frames (opaque content ~27×41–49×39). */
+const SHEEP_CROP = { x: 32, y: 36, w: 64, h: 56 };
 
 export type SheepDir = "up" | "down" | "left" | "right";
 
@@ -73,6 +76,10 @@ export class AssetAtlas {
     ctx.drawImage(img, sx, sy, PASTORAL_CELL, PASTORAL_CELL, dx, dy, s, s);
   }
 
+  /**
+   * Draw sheep cropped to its opaque body and scaled to nearly fill the cell,
+   * centered (slightly low so feet sit on the tile).
+   */
   drawSheep(
     ctx: CanvasRenderingContext2D,
     dx: number,
@@ -85,20 +92,22 @@ export class AssetAtlas {
     if (!img || !img.complete || img.naturalWidth === 0) return;
     const col = ((frame % SHEEP_COLS) + SHEEP_COLS) % SHEEP_COLS;
     const row = SHEEP_ROW[dir] ?? 2;
-    const sx = col * SHEEP_FRAME;
-    const sy = row * SHEEP_FRAME;
-    const pad = s * 0.05;
-    ctx.drawImage(
-      img,
-      sx,
-      sy,
-      SHEEP_FRAME,
-      SHEEP_FRAME,
-      dx + pad,
-      dy + pad,
-      s - pad * 2,
-      s - pad * 2,
-    );
+    const sx = col * SHEEP_FRAME + SHEEP_CROP.x;
+    const sy = row * SHEEP_FRAME + SHEEP_CROP.y;
+
+    const dest = s * 0.92;
+    const ox = dx + (s - dest) / 2;
+    const oy = dy + (s - dest) / 2 + s * 0.04;
+
+    // Soft ground shadow for contrast on grass.
+    ctx.save();
+    ctx.fillStyle = "rgba(20, 28, 18, 0.28)";
+    ctx.beginPath();
+    ctx.ellipse(dx + s / 2, dy + s * 0.82, s * 0.28, s * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.drawImage(img, sx, sy, SHEEP_CROP.w, SHEEP_CROP.h, ox, oy, dest, dest);
   }
 }
 
