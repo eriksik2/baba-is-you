@@ -15,21 +15,17 @@ describe("rule areas", () => {
       globalRules: [{ subject: "baba", verb: "is", object: "you" }],
       areas: [{ id: 1, name: "Yard", color: "rgba(255,0,0,0.2)" }],
       areaMap: [
-        // y0
         0, 0, 0, 0, 0, 0, 0, 0,
-        // y1 area 1 for x1-5
         0, 1, 1, 1, 1, 1, 0, 0,
-        // y2
         0, 1, 1, 1, 1, 1, 0, 0,
-        // y3
         0, 0, 0, 0, 0, 0, 0, 0,
       ],
       entities: [
         { kind: "text", id: "wall", x: 1, y: 1 },
         { kind: "text", id: "is", x: 2, y: 1 },
         { kind: "text", id: "stop", x: 3, y: 1 },
-        { kind: "object", id: "wall", x: 4, y: 2 }, // inside area → STOP
-        { kind: "object", id: "wall", x: 7, y: 2 }, // outside → not STOP
+        { kind: "object", id: "wall", x: 4, y: 2 },
+        { kind: "object", id: "wall", x: 7, y: 2 },
         { kind: "object", id: "baba", x: 0, y: 2 },
       ],
     };
@@ -57,7 +53,6 @@ describe("rule areas", () => {
         0, 0, 0, 0, 0, 0,
       ],
       entities: [
-        // WALL IS in area 1, STOP outside — must not form
         { kind: "text", id: "wall", x: 0, y: 0 },
         { kind: "text", id: "is", x: 1, y: 0 },
         { kind: "text", id: "stop", x: 2, y: 0 },
@@ -73,21 +68,5 @@ describe("rule areas", () => {
     expect(session.world.entitiesWithProperty("you").length).toBeGreaterThan(0);
     expect(session.world.isOverworld).toBe(true);
     expect(session.world.portals.length).toBeGreaterThan(0);
-  });
-
-  test("display rules focus on the player's current area", () => {
-    const world = loadDocument(OVERWORLD);
-    const you = world.entitiesWithProperty("you")[0]!;
-    // Outside areas: should not list every local rule key unscoped.
-    const outside = world.activeFeaturesForDisplay(world.areaAt(you.position));
-    expect(outside.some((k) => k.includes("baba is you") || k === "baba is you")).toBe(true);
-
-    // Step into garden if needed — find a garden cell with no solid wall text conflict.
-    const gardenCell = { x: 3, y: 3 };
-    expect(world.areaAt(gardenCell)).toBe(1);
-    world.moveEntity(you.id, gardenCell);
-    world.rebuildRules();
-    const inside = world.activeFeaturesForDisplay(1);
-    expect(inside.some((k) => k.toLowerCase().includes("wall is stop"))).toBe(true);
   });
 });

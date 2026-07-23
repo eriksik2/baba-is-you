@@ -1,8 +1,8 @@
 /**
  * Lexicon: data-driven dictionary of every word the rules engine understands.
  *
- * Adding new nouns/properties/operators should usually mean registering here
- * (and optionally a property handler) — not forking the parser.
+ * Campaign vocabulary is intentionally small while we settle mechanics:
+ * nouns baba/wall/rock (+ implicit text), properties you/push/stop/pull, operator is.
  */
 
 import type { NounId, OperatorId, PropertyId, WordId } from "../types";
@@ -12,8 +12,8 @@ export type WordClass =
   | "noun"
   | "property"
   | "operator"
-  | "prefix" // lonely, …
-  | "infix"; // on, near, facing, …
+  | "prefix"
+  | "infix";
 
 export interface WordDefinition {
   readonly id: WordId;
@@ -83,21 +83,15 @@ export class Lexicon {
   }
 }
 
-/** Built-in vanilla-ish starter lexicon. Extend via register* for mods/content packs. */
+/** Slim starter lexicon — expand later as features land. */
 export function createDefaultLexicon(): Lexicon {
   const lex = new Lexicon();
 
   const nouns: Array<[string, string, string?]> = [
     ["baba", "Baba", "baba"],
-    ["keke", "Keke", "keke"],
     ["wall", "Wall", "wall"],
     ["rock", "Rock", "rock"],
-    ["flag", "Flag", "flag"],
-    ["water", "Water", "water"],
-    ["lava", "Lava", "lava"],
-    ["skull", "Skull", "skull"],
-    ["grass", "Grass", "grass"],
-    ["tile", "Tile", "tile"],
+    // Implicit subject of TEXT IS PUSH; not placed as an object tile.
     ["text", "Text", "text"],
   ];
 
@@ -120,15 +114,7 @@ export function createDefaultLexicon(): Lexicon {
     ["you", "YOU"],
     ["push", "PUSH"],
     ["stop", "STOP"],
-    ["win", "WIN"],
-    ["defeat", "DEFEAT"],
-    ["sink", "SINK"],
-    ["melt", "MELT"],
-    ["hot", "HOT"],
-    ["move", "MOVE"],
-    ["open", "OPEN"],
-    ["shut", "SHUT"],
-    ["float", "FLOAT"],
+    ["pull", "PULL"],
   ];
 
   for (const [id, label] of properties) {
@@ -141,41 +127,11 @@ export function createDefaultLexicon(): Lexicon {
     });
   }
 
-  const operators: Array<[string, string]> = [
-    ["is", "IS"],
-    ["and", "AND"],
-    ["has", "HAS"],
-    ["make", "MAKE"],
-    ["not", "NOT"],
-  ];
-
-  for (const [id, label] of operators) {
-    lex.registerWord({
-      id: asWordId(id),
-      wordClass: "operator",
-      label,
-      namesOperator: asOperatorId(id),
-      palette: "text-operator",
-    });
-  }
-
-  // Prefix / infix stubs for future expansion (lonely / on / near).
   lex.registerWord({
-    id: asWordId("lonely"),
-    wordClass: "prefix",
-    label: "LONELY",
-    palette: "text-operator",
-  });
-  lex.registerWord({
-    id: asWordId("on"),
-    wordClass: "infix",
-    label: "ON",
-    palette: "text-operator",
-  });
-  lex.registerWord({
-    id: asWordId("near"),
-    wordClass: "infix",
-    label: "NEAR",
+    id: asWordId("is"),
+    wordClass: "operator",
+    label: "IS",
+    namesOperator: asOperatorId("is"),
     palette: "text-operator",
   });
 

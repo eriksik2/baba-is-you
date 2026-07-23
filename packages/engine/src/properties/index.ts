@@ -60,79 +60,15 @@ export function createDefaultProperties(): PropertyRegistry {
 
   reg.register({
     id: asPropertyId("push"),
-    // Movement system handles push recursively; this marks pushability.
-    // onBeforeEnter is not used for push — see tryMove.
+    // Movement system handles push recursively.
   });
 
   reg.register({
-    id: asPropertyId("win"),
-    onAfterEnter: (mover, _target, ctx) => {
-      if (ctx.world.hasProperty(mover, "you")) {
-        ctx.world.status = "won";
-      }
-    },
-    onResolve: (entity, ctx) => {
-      if (!ctx.world.hasProperty(entity, "you")) return;
-      const here = ctx.world.grid.entitiesAt(entity.position, ctx.world.entities);
-      if (here.some((o) => o.id !== entity.id && ctx.world.hasProperty(o, "win"))) {
-        ctx.world.status = "won";
-      }
-      // YOU IS WIN
-      if (ctx.world.hasProperty(entity, "win")) {
-        ctx.world.status = "won";
-      }
-    },
-  });
-
-  reg.register({
-    id: asPropertyId("defeat"),
-    onAfterEnter: (mover, _target, ctx) => {
-      if (ctx.world.hasProperty(mover, "you")) {
-        ctx.world.destroyEntity(mover.id);
-      }
-    },
-    onResolve: (entity, ctx) => {
-      const here = ctx.world.grid.entitiesAt(entity.position, ctx.world.entities);
-      if (ctx.world.hasProperty(entity, "defeat")) {
-        for (const o of here) {
-          if (o.id !== entity.id && ctx.world.hasProperty(o, "you")) {
-            ctx.world.destroyEntity(o.id);
-          }
-        }
-      }
-    },
-  });
-
-  reg.register({
-    id: asPropertyId("sink"),
-    onAfterEnter: (mover, target, ctx) => {
-      ctx.world.destroyEntity(mover.id);
-      ctx.world.destroyEntity(target.id);
-    },
-  });
-
-  reg.register({
-    id: asPropertyId("hot"),
-    onResolve: (entity, ctx) => {
-      if (!ctx.world.hasProperty(entity, "hot")) return;
-      const here = ctx.world.grid.entitiesAt(entity.position, ctx.world.entities);
-      for (const o of here) {
-        if (o.id !== entity.id && ctx.world.hasProperty(o, "melt")) {
-          ctx.world.destroyEntity(o.id);
-        }
-      }
-    },
-  });
-
-  reg.register({
-    id: asPropertyId("melt"),
+    id: asPropertyId("pull"),
+    // Movement: blocks entry unless also PUSH; applyPullChain follows movers.
   });
 
   reg.register({ id: asPropertyId("you") });
-  reg.register({ id: asPropertyId("move") });
-  reg.register({ id: asPropertyId("open") });
-  reg.register({ id: asPropertyId("shut") });
-  reg.register({ id: asPropertyId("float") });
 
   return reg;
 }
