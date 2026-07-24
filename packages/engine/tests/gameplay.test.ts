@@ -222,7 +222,7 @@ baba!,rock!,,,,
     expect(session.world.status).toBe("won");
   });
 
-  test("SLIDE continues until blocked", () => {
+  test("SLIDE advances one tile per turn", () => {
     const world = loadDocument({
       id: "slide-test",
       name: "slide",
@@ -243,8 +243,13 @@ baba!,rock!,,,,
       ],
     });
     const session = new GameSession(world);
+    // Move right: YOU step to x=2, then SLIDE one more to x=3.
     session.dispatch({ type: "move", direction: "right" });
-    expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 6, y: 1 });
+    expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 3, y: 1 });
+    session.dispatch({ type: "wait" });
+    expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 4, y: 1 });
+    session.dispatch({ type: "wait" });
+    expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 5, y: 1 });
   });
 
   test("FRUIT ON DOOR IS WIN when stacked", () => {
@@ -360,6 +365,78 @@ baba!,rock!,,,,
     expect(fruit.position).toEqual({ x: 3, y: 1 });
     expect(rock.position).toEqual({ x: 2, y: 1 });
     expect(baba.position).toEqual({ x: 2, y: 1 });
+  });
+
+  test("STICKY chain follows like a snake", () => {
+    // Rocks in a row behind baba: when baba moves right, each rock steps into
+    // the cell the segment ahead vacated (O3→O2→O1→baba's start).
+    const world = loadDocument({
+      id: "sticky-snake",
+      name: "sticky-snake",
+      width: 8,
+      height: 3,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "rock", verb: "is", object: "sticky" },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 24 }, () => 0),
+      background: Array.from({ length: 24 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 3, y: 1 },
+        { kind: "object", id: "rock", x: 2, y: 1 },
+        { kind: "object", id: "rock", x: 1, y: 1 },
+        { kind: "object", id: "rock", x: 0, y: 1 },
+      ],
+    });
+    const session = new GameSession(world);
+    session.dispatch({ type: "move", direction: "right" });
+    const baba = session.world.entitiesWithProperty("you")[0]!;
+    expect(baba.position).toEqual({ x: 4, y: 1 });
+    const rocks = session.world.entities
+      .filter((e) => e.noun === asNounId("rock"))
+      .map((e) => e.position)
+      .sort((a, b) => a.x - b.x);
+    expect(rocks).toEqual([
+      { x: 1, y: 1 },
+      { x: 2, y: 1 },
+      { x: 3, y: 1 },
+    ]);
+  });
+
+  test("STICKY+SLIDE coasts one tile in the follow direction", () => {
+    const world = loadDocument({
+      id: "sticky-slide",
+      name: "sticky-slide",
+      width: 8,
+      height: 4,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "wall", verb: "is", object: "stop" },
+        {
+          subject: "rock",
+          verb: "is",
+          object: "sticky",
+          words: ["rock", "is", "sticky", "and", "slide"],
+        },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 32 }, () => 0),
+      background: Array.from({ length: 32 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 2, y: 1 },
+        { kind: "object", id: "rock", x: 1, y: 1 },
+      ],
+    });
+    const session = new GameSession(world);
+    // Baba up to (2,0); rock follows into (2,1) facing right; slide coasts to (3,1).
+    session.dispatch({ type: "move", direction: "up" });
+    const rock = session.world.entities.filter((e) => e.noun === asNounId("rock"))[0]!;
+    expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 2, y: 0 });
+    expect(rock.position).toEqual({ x: 3, y: 1 });
+    expect(rock.facing).toBe("right");
+    session.dispatch({ type: "wait" });
+    expect(rock.position).toEqual({ x: 4, y: 1 });
   });
 
   test("global AND words expand via parser", () => {

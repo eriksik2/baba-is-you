@@ -4,7 +4,8 @@
  * YOU units attempt to step; PUSH chains recurse;
  * STOP / PULL-without-PUSH block entry;
  * after a successful YOU step, PULL objects behind the mover follow;
- * STICKY neighbors (8-way) then occupy vacated cells (never swap).
+ * STICKY neighbors (8-way) snake-follow into vacated cells (never swap);
+ * SLIDE advances one tile per turn in facing.
  */
 
 import type { EntityRecord } from "../entity/store";
@@ -20,6 +21,9 @@ export interface MoveResult {
   /** Cells left by movers this attempt (in move order). */
   vacated: Vec2[];
 }
+
+/** Vacancy left by something traveling `dir` — sticky snake seed. */
+export type StickyVacancy = { cell: Vec2; dir: Direction };
 
 /** 8-neighborhood offsets, reading order. */
 export const STICKY_OFFSETS: ReadonlyArray<Vec2> = [
@@ -48,6 +52,10 @@ function directionToward(from: Vec2, to: Vec2): Direction {
   return dy >= 0 ? "down" : "up";
 }
 
+function entityNumId(e: EntityRecord): number {
+  return e.id as unknown as number;
+}
+
 /**
  * Try to move `entity` one step. Handles push chains.
  * Returns whether the original entity moved.
@@ -60,10 +68,10 @@ export function tryMove(
   visiting: Set<number> = new Set(),
 ): MoveResult {
   if (!entity.alive) return { moved: false, movers: [], vacated: [] };
-  if (visiting.has(entity.id as unknown as number)) {
+  if (visiting.has(entityNumId(entity))) {
     return { moved: false, movers: [], vacated: [] };
   }
-  visiting.add(entity.id as unknown as number);
+  visiting.add(entityNumId(entity));
 
   const delta = DIRECTION_DELTA[direction];
   const dest = addVec(entity.position, delta);
@@ -179,73 +187,103 @@ export function applyPullChain(
   return { moved: any, movers, vacated: vacatedCells };
 }
 
+/** Rank sticky neighbors so the segment trailing the mover claims first (snake). */
+function rankStickyCandidates(
+  cell: Vec2,
+  moveDir: Direction,
+  candidates: EntityRecord[],
+): EntityRecord[] {
+  const behind = DIRECTION_DELTA[OPPOSITE_DIRECTION[moveDir]];
+  return [...candidates].sort((a, b) => {
+    const oa = { x: a.position.x - cell.x, y: a.position.y - cell.y };
+    const ob = { x: b.position.x - cell.x, y: b.position.y - cell.y };
+    const sa = oa.x * behind.x + oa.y * behind.y;
+    const sb = ob.x * behind.x + ob.y * behind.y;
+    if (sb !== sa) return sb - sa;
+    const ca = Math.abs(oa.x) + Math.abs(oa.y);
+    const cb = Math.abs(ob.x) + Math.abs(ob.y);
+    if (ca !== cb) return ca - cb;
+    if (a.position.y !== b.position.y) return a.position.y - b.position.y;
+    if (a.position.x !== b.position.x) return a.position.x - b.position.x;
+    return entityNumId(a) - entityNumId(b);
+  });
+}
+
 /**
- * STICKY: any sticky in the 8-neighborhood of a vacated cell tries to occupy it.
- * Never swaps — only enters cells already vacated. Deterministic offset order.
+ * STICKY snake-follow: each vacated cell is claimed by at most one sticky neighbor
+ * (prefer the one trailing the mover). That sticky's old cell is enqueued so chains
+ * follow like a snake. Never swaps — only enters already-vacated cells.
+ *
+ * Facing is set to the step direction so SLIDE continues that way next.
  */
 export function applyStickyFollow(
   world: World,
   properties: PropertyRegistry,
-  vacatedCells: readonly Vec2[],
+  seeds: readonly StickyVacancy[],
   alreadyMoved: Set<number> = new Set(),
 ): MoveResult {
   const movers: EntityRecord[] = [];
   const vacated: Vec2[] = [];
   let any = false;
 
-  // Process vacancies in order; each sticky moves at most once per call.
-  for (const cell of vacatedCells) {
+  const queue: StickyVacancy[] = seeds.map((s) => ({
+    cell: { x: s.cell.x, y: s.cell.y },
+    dir: s.dir,
+  }));
+
+  while (queue.length > 0) {
+    const { cell, dir } = queue.shift()!;
     if (!world.grid.inBounds(cell)) continue;
 
-    const candidates: EntityRecord[] = [];
+    const raw: EntityRecord[] = [];
     for (const off of STICKY_OFFSETS) {
       const n = { x: cell.x + off.x, y: cell.y + off.y };
       if (!world.grid.inBounds(n)) continue;
       for (const e of world.grid.entitiesAt(n, world.entities)) {
         if (!e.alive) continue;
         if (!world.hasProperty(e, "sticky")) continue;
-        if (alreadyMoved.has(e.id as unknown as number)) continue;
-        candidates.push(e);
+        if (alreadyMoved.has(entityNumId(e))) continue;
+        raw.push(e);
       }
     }
 
-    // Stable: reading order by position then id.
-    candidates.sort((a, b) => {
-      if (a.position.y !== b.position.y) return a.position.y - b.position.y;
-      if (a.position.x !== b.position.x) return a.position.x - b.position.x;
-      return (a.id as unknown as number) - (b.id as unknown as number);
-    });
+    const candidates = rankStickyCandidates(cell, dir, raw);
 
     for (const sticky of candidates) {
-      if (alreadyMoved.has(sticky.id as unknown as number)) continue;
+      if (alreadyMoved.has(entityNumId(sticky))) continue;
       const cur = world.entities.get(sticky.id);
       if (!cur?.alive || !world.hasProperty(cur, "sticky")) continue;
 
-      const pushDir = directionToward(cur.position, cell);
-      const res = tryEnterCell(world, properties, cur, cell, pushDir);
+      const stepDir = directionToward(cur.position, cell);
+      const res = tryEnterCell(world, properties, cur, cell, stepDir);
       if (!res.moved) continue;
 
       any = true;
       for (const m of res.movers) {
-        alreadyMoved.add(m.id as unknown as number);
+        alreadyMoved.add(entityNumId(m));
       }
       movers.push(...res.movers);
       vacated.push(...res.vacated);
 
-      // Sticky itself left a cell — later vacancies in this batch can pull more stickies,
-      // and we also recurse sticky-follow on freshly vacated cells (no swap: mover gone).
-      const nested = applyStickyFollow(world, properties, res.vacated, alreadyMoved);
-      if (nested.moved) {
-        any = true;
-        movers.push(...nested.movers);
-        vacated.push(...nested.vacated);
+      // Snake tail: the sticky's vacated cell (last in res.vacated is its own `from`).
+      const ownFrom = res.vacated[res.vacated.length - 1];
+      if (ownFrom) {
+        queue.push({ cell: { ...ownFrom }, dir: stepDir });
       }
-      // Only one sticky claims this vacated cell.
+      // One sticky claims this vacancy.
       break;
     }
   }
 
   return { moved: any, movers, vacated };
+}
+
+/** Build sticky seeds: each cell was left by something traveling `dir`. */
+export function stickySeedsFrom(
+  cells: readonly Vec2[],
+  dir: Direction,
+): StickyVacancy[] {
+  return cells.map((cell) => ({ cell: { x: cell.x, y: cell.y }, dir }));
 }
 
 export function moveAllYou(
@@ -280,10 +318,13 @@ export function moveAllYou(
       const pull = applyPullChain(world, properties, from, direction);
       allMovers.push(...pull.movers);
       allVacated.push(...pull.vacated);
+      for (const m of [...res.movers, ...pull.movers]) {
+        stickyMoved.add(entityNumId(m));
+      }
       const sticky = applyStickyFollow(
         world,
         properties,
-        [...res.vacated, ...pull.vacated],
+        stickySeedsFrom([...res.vacated, ...pull.vacated], direction),
         stickyMoved,
       );
       allMovers.push(...sticky.movers);
@@ -294,46 +335,50 @@ export function moveAllYou(
 }
 
 /**
- * SLIDE: keep stepping in facing until blocked.
- * Runs after player move/wait so pushed + you slides continue the same turn.
+ * SLIDE: each slide object steps one tile in its facing (per turn).
+ * Sticky followers from moveYou already face their follow direction, so they
+ * coast one tile here. Mid-phase sticky follows only set facing for later turns.
  */
 export function applySlide(
   world: World,
   properties: PropertyRegistry,
 ): MoveResult {
-  const maxSteps = Math.max(1, world.width * world.height);
   const allMovers: EntityRecord[] = [];
   const allVacated: Vec2[] = [];
   let any = false;
   const stickyMoved = new Set<number>();
 
-  for (let step = 0; step < maxSteps; step++) {
-    const sliders = world
-      .entitiesWithProperty("slide")
-      .filter((e) => e.alive)
-      .sort((a, b) => {
-        if (a.position.y !== b.position.y) return a.position.y - b.position.y;
-        if (a.position.x !== b.position.x) return a.position.x - b.position.x;
-        return (a.id as unknown as number) - (b.id as unknown as number);
-      });
+  const planned = world
+    .entitiesWithProperty("slide")
+    .filter((e) => e.alive)
+    .sort((a, b) => {
+      if (a.position.y !== b.position.y) return a.position.y - b.position.y;
+      if (a.position.x !== b.position.x) return a.position.x - b.position.x;
+      return entityNumId(a) - entityNumId(b);
+    })
+    .map((e) => e.id);
 
-    let stepped = false;
-    for (const e of sliders) {
-      const cur = world.entities.get(e.id);
-      if (!cur?.alive) continue;
-      if (!world.hasProperty(cur, "slide")) continue;
-      const res = tryMove(world, properties, cur, cur.facing);
-      if (res.moved) {
-        stepped = true;
-        any = true;
-        allMovers.push(...res.movers);
-        allVacated.push(...res.vacated);
-        const sticky = applyStickyFollow(world, properties, res.vacated, stickyMoved);
-        allMovers.push(...sticky.movers);
-        allVacated.push(...sticky.vacated);
-      }
-    }
-    if (!stepped) break;
+  for (const id of planned) {
+    const cur = world.entities.get(id);
+    if (!cur?.alive) continue;
+    if (!world.hasProperty(cur, "slide")) continue;
+    const facing = cur.facing;
+    const res = tryMove(world, properties, cur, facing);
+    if (!res.moved) continue;
+
+    any = true;
+    allMovers.push(...res.movers);
+    allVacated.push(...res.vacated);
+    for (const m of res.movers) stickyMoved.add(entityNumId(m));
+
+    const sticky = applyStickyFollow(
+      world,
+      properties,
+      stickySeedsFrom(res.vacated, facing),
+      stickyMoved,
+    );
+    allMovers.push(...sticky.movers);
+    allVacated.push(...sticky.vacated);
   }
 
   return { moved: any, movers: allMovers, vacated: allVacated };
