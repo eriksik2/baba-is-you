@@ -1,4 +1,4 @@
-import type { EntityId, NounId, Vec2 } from "../types";
+import type { EntityId, NounId, Vec2, Direction } from "../types";
 import { asEntityId } from "../types";
 
 /**
@@ -22,6 +22,8 @@ export interface EntityRecord {
   /** Draw / push order within a cell. Higher = on top. */
   layer: number;
   alive: boolean;
+  /** Last movement direction — used by SLIDE. */
+  facing: Direction;
 }
 
 /**
@@ -33,7 +35,12 @@ export class EntityStore {
   private nextId = 1;
   private readonly freeIds: EntityId[] = [];
 
-  create(init: Omit<EntityRecord, "id" | "alive"> & { alive?: boolean }): EntityRecord {
+  create(
+    init: Omit<EntityRecord, "id" | "alive" | "facing"> & {
+      alive?: boolean;
+      facing?: Direction;
+    },
+  ): EntityRecord {
     const id = this.freeIds.pop() ?? asEntityId(this.nextId++);
     const record: EntityRecord = {
       id,
@@ -42,6 +49,7 @@ export class EntityStore {
       noun: init.noun,
       layer: init.layer,
       alive: init.alive ?? true,
+      facing: init.facing ?? "down",
     };
     this.entities.set(id, record);
     return record;
@@ -101,6 +109,7 @@ export class EntityStore {
         noun: e.noun,
         layer: e.layer,
         alive: e.alive,
+        facing: e.facing,
       });
     }
     return copy;

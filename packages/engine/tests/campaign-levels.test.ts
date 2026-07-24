@@ -10,6 +10,7 @@ import {
   LEVEL_JUNGLE_1,
   OVERWORLD,
   CAMPAIGN_LEVELS,
+  asNounId,
 } from "../src/index";
 
 function textsOnWallObjects(doc: {
@@ -115,10 +116,10 @@ describe("campaign levels", () => {
   test("jungle-1 loads with fruit, door, and ON win sentence", () => {
     const world = loadDocument(LEVEL_JUNGLE_1);
     const objs = [...world.entities.values()].filter((e) => e.kind === "object");
-    expect(objs.some((e) => e.noun === ("fruit" as never))).toBe(true);
-    expect(objs.some((e) => e.noun === ("door" as never))).toBe(true);
+    expect(objs.some((e) => e.noun === asNounId("fruit"))).toBe(true);
+    expect(objs.some((e) => e.noun === asNounId("door"))).toBe(true);
     const features = world.activeFeaturesForDisplay();
-    expect(features.some((k) => k.includes("fruit on:door is win"))).toBe(true);
+    expect(features.some((k) => k.includes("fruit on door is win"))).toBe(true);
   });
 
   test("level-2, level-4, and special have no text on wall cells", () => {

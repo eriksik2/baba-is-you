@@ -16,7 +16,7 @@ import {
   createDefaultProperties,
   type PropertyRegistry,
 } from "../properties";
-import { applyTransforms, moveAllYou, resolveOverlaps } from "../systems";
+import { applyTransforms, applySlide, moveAllYou, resolveOverlaps } from "../systems";
 import { HistoryStack } from "../history/stack";
 import { EventBus, type GameEventMap } from "../events/bus";
 
@@ -85,10 +85,20 @@ export const moveYouPhase: TurnPhase = {
 export const waitPhase: TurnPhase = {
   name: "wait",
   run(ctx) {
-    // WAIT still advances turn-based properties (MOVE patrol later).
+    // WAIT still advances turn-based properties (SLIDE, later MOVE patrol).
     if (ctx.intent.type === "wait") {
       ctx.rulesDirty = true;
     }
+  },
+};
+
+export const slidePhase: TurnPhase = {
+  name: "slide",
+  run(ctx) {
+    if (ctx.world.status !== "playing") return;
+    if (ctx.intent.type !== "move" && ctx.intent.type !== "wait") return;
+    const res = applySlide(ctx.world, ctx.properties);
+    if (res.moved) ctx.rulesDirty = true;
   },
 };
 
@@ -136,6 +146,7 @@ export function createDefaultPipeline(
     [
       moveYouPhase,
       waitPhase,
+      slidePhase,
       rebuildRulesPhase,
       transformPhase,
       rebuildRulesAfterTransformPhase,

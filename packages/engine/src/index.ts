@@ -60,6 +60,7 @@ export type { PropertyHandler, PropertyContext } from "./properties";
 export {
   tryMove,
   moveAllYou,
+  applySlide,
   stepToward,
   applyTransforms,
   resolveOverlaps,

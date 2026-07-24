@@ -1,8 +1,5 @@
 /**
  * Lexicon: data-driven dictionary of every word the rules engine understands.
- *
- * Campaign vocabulary is intentionally small while we settle mechanics:
- * nouns baba/wall/rock (+ implicit text), properties you/push/stop/pull, operator is.
  */
 
 import type { NounId, OperatorId, PropertyId, WordId } from "../types";
@@ -18,15 +15,10 @@ export type WordClass =
 export interface WordDefinition {
   readonly id: WordId;
   readonly wordClass: WordClass;
-  /** Display label (usually uppercase). */
   readonly label: string;
-  /** For noun-words: the object noun they name. For others, undefined. */
   readonly namesNoun?: NounId;
-  /** For property-words: the property they confer. */
   readonly namesProperty?: PropertyId;
-  /** For operator-words. */
   readonly namesOperator?: OperatorId;
-  /** Visual hint for renderers (optional palette key). */
   readonly palette?: string;
 }
 
@@ -83,7 +75,6 @@ export class Lexicon {
   }
 }
 
-/** Slim starter lexicon — expand later as features land. */
 export function createDefaultLexicon(): Lexicon {
   const lex = new Lexicon();
 
@@ -91,8 +82,12 @@ export function createDefaultLexicon(): Lexicon {
     ["baba", "Baba", "baba"],
     ["wall", "Wall", "wall"],
     ["rock", "Rock", "rock"],
-    // Implicit subject of TEXT IS PUSH; not placed as an object tile.
+    ["tree", "Tree", "tree"],
+    ["fruit", "Fruit", "fruit"],
+    ["door", "Door", "door"],
+    // Implicit / meta nouns for text tiles
     ["text", "Text", "text"],
+    ["word", "Word", "word"],
   ];
 
   for (const [id, label, palette] of nouns) {
@@ -115,6 +110,8 @@ export function createDefaultLexicon(): Lexicon {
     ["push", "PUSH"],
     ["stop", "STOP"],
     ["pull", "PULL"],
+    ["slide", "SLIDE"],
+    ["win", "WIN"],
   ];
 
   for (const [id, label] of properties) {
@@ -127,13 +124,22 @@ export function createDefaultLexicon(): Lexicon {
     });
   }
 
-  lex.registerWord({
-    id: asWordId("is"),
-    wordClass: "operator",
-    label: "IS",
-    namesOperator: asOperatorId("is"),
-    palette: "text-operator",
-  });
+  const operators: Array<[string, string, WordClass]> = [
+    ["is", "IS", "operator"],
+    ["and", "AND", "operator"],
+    ["not", "NOT", "operator"],
+    ["on", "ON", "infix"],
+  ];
+
+  for (const [id, label, wordClass] of operators) {
+    lex.registerWord({
+      id: asWordId(id),
+      wordClass,
+      label,
+      namesOperator: asOperatorId(id),
+      palette: "text-operator",
+    });
+  }
 
   return lex;
 }

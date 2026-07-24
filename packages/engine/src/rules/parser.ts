@@ -1,16 +1,17 @@
 /**
  * Sentence scanner + parser.
  *
- * Pipeline (mirrors Hempuli's high-level design):
- * 1. Collect noun-word tiles as potential sentence starts.
- * 2. Walk right / down collecting a valid word sequence around IS.
- * 3. Split at IS into subject phrase + predicate phrase.
- * 4. Expand AND via cartesian product into Features.
- * 5. Apply NOT modifiers; cancel contradictory features (X IS YOU vs X IS NOT YOU).
+ * Grammar (deterministic):
  *
- * Extension points:
- * - Phrase grammars for prefixes/infixes live in parseSubjectPhrase / parsePredicatePhrase.
- * - Stacked words: textAt returns all text tiles in a cell; full permutations later.
+ *   SubjectAtom  := Noun (ON Noun)?
+ *   Subject      := SubjectAtom (AND SubjectAtom)*
+ *   PredAtom     := (Property | Noun)
+ *   Predicate    := PredAtom (AND PredAtom)*
+ *   Sentence     := Subject IS Predicate
+ *
+ * NOT may wrap individual Noun/Property atoms (and ON-target nouns).
+ * AND expands via cartesian product of subject atoms × predicate atoms.
+ * Each subject atom carries its own ON condition list into the Feature.
  */
 
 import type { Lexicon } from "../lexicon";
@@ -21,13 +22,15 @@ import {
   type Feature,
   type NounRef,
   type PredicateTarget,
+  type RuleCondition,
   type RuleSet,
   type TextTile,
 } from "./types";
 
-interface PhraseNoun {
+interface SubjectAtom {
   noun: NounId;
   negated: boolean;
+  conditions: RuleCondition[];
 }
 
 interface PhraseNounOrProp {
@@ -48,12 +51,7 @@ export interface ParseContext {
   readonly width: number;
   readonly height: number;
   readonly texts: readonly TextTile[];
-  /**
-   * Optional cell→area lookup. Sentence walks stop at area boundaries;
-   * features are tagged with that area id for scoped evaluation.
-   */
   readonly areaAt?: (x: number, y: number) => number;
-  /** When false, skip the implicit TEXT IS PUSH feature (used for area passes). */
   readonly includeImplicitTextPush?: boolean;
 }
 
@@ -132,6 +130,7 @@ function tryParseFrom(
           asOperatorId("is"),
           target,
           axis,
+          sub.conditions,
         ),
       );
     }
@@ -152,7 +151,6 @@ function collectSequence(
   let x = start.x + dx;
   let y = start.y + dy;
   let seenIs = false;
-
   const startArea = ctx.areaAt?.(start.x, start.y) ?? 0;
 
   while (x < ctx.width && y < ctx.height) {
@@ -190,13 +188,17 @@ function pickCompatible(
 }
 
 /**
- * Grammar (simplified, extensible):
+ * Deterministic next-word acceptance. Same rules always → same parse.
  *
- *   Subject   := Noun (AND Noun)*
- *   Predicate := (Property | Noun) (AND (Property | Noun))*
- *   Sentence  := Subject IS Predicate
+ * Subject side states (implicit via previous word):
+ *   after noun → IS | AND | ON
+ *   after ON   → noun (optionally NOT noun)
+ *   after AND  → noun | NOT
+ *   after NOT  → noun (or ON-target noun)
  *
- * NOT may wrap individual Noun/Property atoms: NOT YOU, NOT BABA.
+ * Predicate side:
+ *   after IS/AND/NOT → property | noun
+ *   after prop/noun  → AND
  */
 function isCompatibleNext(
   ctx: ParseContext,
@@ -212,19 +214,24 @@ function isCompatibleNext(
   const prevIsNot = isOp(ctx, prev.wordId, "not");
   const prevIsAnd = isOp(ctx, prev.wordId, "and");
   const prevIsIs = isOp(ctx, prev.wordId, "is");
+  const prevIsOn = isOp(ctx, prev.wordId, "on");
 
   if (!seenIs) {
     if (isOp(ctx, next.wordId, "is")) {
+      // Complete subject atom ends with a noun (not ON/AND/NOT).
       return prevDef.wordClass === "noun";
     }
     if (isOp(ctx, next.wordId, "and")) {
       return prevDef.wordClass === "noun";
     }
+    if (isOp(ctx, next.wordId, "on")) {
+      return prevDef.wordClass === "noun";
+    }
     if (isOp(ctx, next.wordId, "not")) {
-      return prevIsAnd;
+      return prevIsAnd || prevIsOn;
     }
     if (def.wordClass === "noun") {
-      return prevIsAnd || prevIsNot;
+      return prevIsAnd || prevIsNot || prevIsOn;
     }
     return false;
   }
@@ -242,27 +249,49 @@ function isCompatibleNext(
   return false;
 }
 
-function parseSubjectPhrase(ctx: ParseContext, tiles: TextTile[]): PhraseNoun[] {
-  const result: PhraseNoun[] = [];
-  let negated = false;
+function parseSubjectPhrase(ctx: ParseContext, tiles: TextTile[]): SubjectAtom[] {
+  const result: SubjectAtom[] = [];
+  let i = 0;
 
-  for (const t of tiles) {
-    if (isOp(ctx, t.wordId, "and")) {
-      negated = false;
-      continue;
+  while (i < tiles.length) {
+    // Optional leading AND between atoms (first atom has none).
+    if (isOp(ctx, tiles[i]!.wordId, "and")) {
+      i++;
+      if (i >= tiles.length) return [];
     }
-    if (isOp(ctx, t.wordId, "not")) {
-      negated = !negated;
-      continue;
+
+    let negated = false;
+    if (isOp(ctx, tiles[i]!.wordId, "not")) {
+      negated = true;
+      i++;
+      if (i >= tiles.length) return [];
     }
-    const def = ctx.lexicon.getWord(t.wordId);
-    if (def?.wordClass === "noun" && def.namesNoun) {
-      result.push({ noun: def.namesNoun, negated });
-      negated = false;
-    } else {
-      return [];
+
+    const nounTile = tiles[i]!;
+    const nounDef = ctx.lexicon.getWord(nounTile.wordId);
+    if (nounDef?.wordClass !== "noun" || !nounDef.namesNoun) return [];
+    i++;
+
+    const conditions: RuleCondition[] = [];
+    if (i < tiles.length && isOp(ctx, tiles[i]!.wordId, "on")) {
+      i++; // consume ON
+      if (i >= tiles.length) return [];
+      let onNeg = false;
+      if (isOp(ctx, tiles[i]!.wordId, "not")) {
+        onNeg = true;
+        i++;
+        if (i >= tiles.length) return [];
+      }
+      const onTile = tiles[i]!;
+      const onDef = ctx.lexicon.getWord(onTile.wordId);
+      if (onDef?.wordClass !== "noun" || !onDef.namesNoun) return [];
+      conditions.push({ kind: "on", noun: onDef.namesNoun, negated: onNeg });
+      i++;
     }
+
+    result.push({ noun: nounDef.namesNoun, negated, conditions });
   }
+
   return result;
 }
 
@@ -321,6 +350,8 @@ export function buildRuleSet(features: readonly Feature[]): RuleSet {
   for (const f of active) {
     if (f.subject.negated) continue;
     if (f.verb !== asOperatorId("is")) continue;
+    // Only unconditional rules index into the fast maps.
+    if (f.conditions.length > 0) continue;
 
     if (f.target.kind === "property" && !f.target.negated) {
       let set = propertiesByNoun.get(f.subject.noun);
@@ -343,7 +374,7 @@ function positiveKey(f: Feature): string {
     f.target.kind === "property"
       ? { kind: "property", property: f.target.property, negated: false }
       : { kind: "noun", noun: f.target.noun, negated: false };
-  return createFeature(subject, f.verb, target, f.axis).key;
+  return createFeature(subject, f.verb, target, f.axis, f.conditions).key;
 }
 
 export function nounHasProperty(
