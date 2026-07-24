@@ -62,11 +62,13 @@ export {
   moveAllYou,
   applySlide,
   applyStickyFollow,
+  stickySeedsFrom,
   stepToward,
   applyTransforms,
   resolveOverlaps,
+  STICKY_OFFSETS,
 } from "./systems";
-export type { MoveResult } from "./systems";
+export type { MoveResult, StickyVacancy } from "./systems";
 
 // Turn / session
 export {
