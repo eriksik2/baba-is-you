@@ -121,6 +121,8 @@ export function mountPlay(api: AppApi): {
   let stepAccum = 0;
   let lastHeldDir: string | null = null;
   let camera: Camera = { x: 0, y: 0, zoom: 48 };
+  /** Player zoom override when camera mode is follow (level sets initial only). */
+  let playZoom: number | null = null;
   let youFocus = 0;
   let isDevWorld = false;
 
@@ -170,6 +172,21 @@ export function mountPlay(api: AppApi): {
     return resolveCamera(session.world.camera, session.world.areaDefs, areaId);
   }
 
+  function effectiveZoom(settings: LevelCameraSettings): number {
+    if (settings.mode === "fixed") return clampZoom(settings.zoom);
+    if (playZoom == null) playZoom = clampZoom(settings.zoom);
+    return clampZoom(playZoom);
+  }
+
+  function adjustPlayZoom(factor: number, sx?: number, sy?: number): void {
+    const settings = activeCameraSettings();
+    if (settings.mode === "fixed") return;
+    const cx = sx ?? renderer.viewW / 2;
+    const cy = sy ?? renderer.viewH / 2;
+    camera = zoomAround(renderer, camera, factor, cx, cy);
+    playZoom = camera.zoom;
+  }
+
   function refreshYouSwitcher(): void {
     const settings = activeCameraSettings();
     const yous = youList();
@@ -214,7 +231,7 @@ export function mountPlay(api: AppApi): {
   function snapCamera(): void {
     if (!session) return;
     const settings = activeCameraSettings();
-    const zoom = clampZoom(settings.zoom);
+    const zoom = effectiveZoom(settings);
     if (settings.mode === "fixed") {
       camera = {
         x: settings.x ?? session.world.width / 2,
@@ -235,13 +252,13 @@ export function mountPlay(api: AppApi): {
     const rect = boardShell.getBoundingClientRect();
     renderer.resizeViewport(Math.max(120, rect.width), Math.max(120, rect.height));
     const settings = activeCameraSettings();
-    camera = { ...camera, zoom: clampZoom(settings.zoom) };
+    camera = { ...camera, zoom: effectiveZoom(settings) };
   }
 
   function updateCamera(): void {
     if (!session) return;
     const settings = activeCameraSettings();
-    const zoom = clampZoom(settings.zoom);
+    const zoom = effectiveZoom(settings);
     if (settings.mode === "fixed") {
       camera = {
         x: settings.x ?? session.world.width / 2,
@@ -434,6 +451,7 @@ export function mountPlay(api: AppApi): {
     }
     session = new Session(world);
     youFocus = 0;
+    playZoom = null;
     levelName.textContent = doc.name;
     statusEl.textContent = "";
     setMenuOpen(false);
@@ -520,6 +538,60 @@ export function mountPlay(api: AppApi): {
     swipeTarget: canvas,
   });
 
+  const onPlayWheel = (ev: WheelEvent) => {
+    if (activeCameraSettings().mode === "fixed") return;
+    ev.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const factor = ev.deltaY > 0 ? 1 / ZOOM_STEP : ZOOM_STEP;
+    adjustPlayZoom(factor, ev.clientX - rect.left, ev.clientY - rect.top);
+  };
+  canvas.addEventListener("wheel", onPlayWheel, { passive: false });
+
+  const onPlayZoomKey = (ev: KeyboardEvent) => {
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (activeCameraSettings().mode === "fixed") return;
+    if (ev.key === "=" || ev.key === "+" || ev.key === "]") {
+      ev.preventDefault();
+      adjustPlayZoom(ZOOM_STEP);
+    } else if (ev.key === "-" || ev.key === "[") {
+      ev.preventDefault();
+      adjustPlayZoom(1 / ZOOM_STEP);
+    }
+  };
+  screen.addEventListener("keydown", onPlayZoomKey);
+
+  // Pinch-to-zoom in play (follow camera only)
+  const playPointers = new Map<number, { x: number; y: number }>();
+  let playPinchDist = 0;
+  let playPinchZoom = 48;
+  canvas.addEventListener("pointerdown", (ev) => {
+    playPointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (playPointers.size === 2 && activeCameraSettings().mode !== "fixed") {
+      const pts = [...playPointers.values()];
+      playPinchDist = Math.max(1, dist(pts[0]!, pts[1]!));
+      playPinchZoom = camera.zoom;
+    }
+  });
+  canvas.addEventListener("pointermove", (ev) => {
+    if (!playPointers.has(ev.pointerId)) return;
+    playPointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (playPointers.size < 2 || activeCameraSettings().mode === "fixed") return;
+    const pts = [...playPointers.values()];
+    const d = Math.max(1, dist(pts[0]!, pts[1]!));
+    const target = clampZoom(playPinchZoom * (d / playPinchDist));
+    const f = target / camera.zoom;
+    if (Math.abs(f - 1) < 0.001) return;
+    const rect = canvas.getBoundingClientRect();
+    const midPt = mid(pts[0]!, pts[1]!);
+    adjustPlayZoom(f, midPt.x - rect.left, midPt.y - rect.top);
+  });
+  const clearPlayPtr = (ev: PointerEvent) => {
+    playPointers.delete(ev.pointerId);
+    if (playPointers.size < 2) playPinchDist = 0;
+  };
+  canvas.addEventListener("pointerup", clearPlayPtr);
+  canvas.addEventListener("pointercancel", clearPlayPtr);
+
   const ro = new ResizeObserver(() => layout());
   ro.observe(boardShell);
   raf = requestAnimationFrame(drawFrame);
@@ -532,6 +604,8 @@ export function mountPlay(api: AppApi): {
       cancelAnimationFrame(raf);
       controls?.destroy();
       ro.disconnect();
+      canvas.removeEventListener("wheel", onPlayWheel);
+      screen.removeEventListener("keydown", onPlayZoomKey);
       devRulesEditor.destroy();
     },
   };
@@ -821,7 +895,18 @@ export function mountEditor(api: AppApi): {
       {
         title: "Text",
         forLayer: "text",
-        items: lexicon.allWords().map((w) => w.id),
+        items: lexicon
+          .allWords()
+          .filter((w) => !w.dev)
+          .map((w) => w.id),
+      },
+      {
+        title: "Dev text",
+        forLayer: "text",
+        items: lexicon
+          .allWords()
+          .filter((w) => w.dev)
+          .map((w) => w.id),
       },
       {
         title: "Ground",

@@ -14,6 +14,7 @@ import type { Direction, Vec2 } from "../types";
 import { DIRECTION_DELTA, OPPOSITE_DIRECTION, addVec } from "../types";
 import type { World } from "../world/world";
 import { destroyWithEffects } from "./destroy";
+import { applyDynamicImpulse, accelerateDynamicYou, confusedDirection } from "./dev-controls";
 
 export interface MoveResult {
   moved: boolean;
@@ -102,6 +103,15 @@ export function tryEnterCell(
 
   const occupants = world.grid.entitiesAt(dest, world.entities);
   const ctx = { world, direction: pushDir };
+
+  // DYNAMIC bodies: bump applies force; soft-block unless also PUSH.
+  for (const occ of occupants) {
+    if (!occ.alive) continue;
+    if (!world.hasProperty(occ, "dynamic")) continue;
+    if (world.hasProperty(occ, "push")) continue;
+    applyDynamicImpulse(world, occ, pushDir);
+    return { moved: false, movers: [], vacated: [], changed: true };
+  }
 
   for (const occ of occupants) {
     if (blocksEntry(world, occ)) {
@@ -344,14 +354,25 @@ export function moveAllYou(
 
   for (const y of yous) {
     if (!world.entities.get(y.id)?.alive) continue;
+    const dir = confusedDirection(world, y, direction);
+
+    // DYNAMIC YOU: accelerate instead of discrete grid step.
+    if (world.hasProperty(y, "dynamic")) {
+      if (accelerateDynamicYou(world, dir)) {
+        changed = true;
+        any = true;
+      }
+      continue;
+    }
+
     const from = { ...y.position };
-    const res = tryMove(world, properties, y, direction);
+    const res = tryMove(world, properties, y, dir);
     if (res.changed) changed = true;
     if (res.moved) {
       any = true;
       allMovers.push(...res.movers);
       allVacated.push(...res.vacated);
-      const pull = applyPullChain(world, properties, from, direction);
+      const pull = applyPullChain(world, properties, from, dir);
       allMovers.push(...pull.movers);
       allVacated.push(...pull.vacated);
       for (const m of [...res.movers, ...pull.movers]) {
@@ -360,7 +381,7 @@ export function moveAllYou(
       const sticky = applyStickyFollow(
         world,
         properties,
-        stickySeedsFrom([...res.vacated, ...pull.vacated], direction),
+        stickySeedsFrom([...res.vacated, ...pull.vacated], dir),
         stickyMoved,
       );
       allMovers.push(...sticky.movers);
@@ -374,6 +395,7 @@ export function moveAllYou(
  * SLIDE: each slide object steps one tile in its facing (per turn).
  * Sticky followers from moveYou already face their follow direction, so they
  * coast one tile here. Mid-phase sticky follows only set facing for later turns.
+ * CONFUSED reverses facing for the slide step.
  */
 export function applySlide(
   world: World,
@@ -387,34 +409,37 @@ export function applySlide(
   const planned = world
     .entitiesWithProperty("slide")
     .filter((e) => e.alive)
-    .sort((a, b) => {
-      if (a.position.y !== b.position.y) return a.position.y - b.position.y;
-      if (a.position.x !== b.position.x) return a.position.x - b.position.x;
-      return entityNumId(a) - entityNumId(b);
-    })
-    .map((e) => e.id);
+    .map((e) => ({
+      e,
+      dir: confusedDirection(world, e, e.facing),
+    }));
 
-  for (const id of planned) {
-    const cur = world.entities.get(id);
-    if (!cur?.alive) continue;
-    if (!world.hasProperty(cur, "slide")) continue;
-    const facing = cur.facing;
-    const res = tryMove(world, properties, cur, facing);
+  planned.sort((a, b) => {
+    if (a.e.position.y !== b.e.position.y) return a.e.position.y - b.e.position.y;
+    return a.e.position.x - b.e.position.x;
+  });
+
+  for (const { e, dir } of planned) {
+    if (!world.entities.get(e.id)?.alive) continue;
+    if (dir === "right" || dir === "down") {
+      // process later movers first for this dir — keep simple order
+    }
+    const from = { ...e.position };
+    const res = tryMove(world, properties, e, dir);
     if (!res.moved) continue;
-
     any = true;
     allMovers.push(...res.movers);
     allVacated.push(...res.vacated);
     for (const m of res.movers) stickyMoved.add(entityNumId(m));
-
     const sticky = applyStickyFollow(
       world,
       properties,
-      stickySeedsFrom(res.vacated, facing),
+      stickySeedsFrom(res.vacated, dir),
       stickyMoved,
     );
     allMovers.push(...sticky.movers);
     allVacated.push(...sticky.vacated);
+    void from;
   }
 
   return { moved: any, movers: allMovers, vacated: allVacated };

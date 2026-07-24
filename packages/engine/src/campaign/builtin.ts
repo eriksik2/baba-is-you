@@ -667,7 +667,7 @@ export const LEVEL_JUNGLE_2: LevelDocument = {
 };
 
 // ---------------------------------------------------------------------------
-// Jungle 3 — Fuse: append AND FRAGILE to TNT IS BOOM, then detonate the seal
+// Jungle 3 — Fuse: slide a rock into TNT from the side (stay out of the blast)
 // ---------------------------------------------------------------------------
 
 export const LEVEL_JUNGLE_3: LevelDocument = {
@@ -679,32 +679,39 @@ export const LEVEL_JUNGLE_3: LevelDocument = {
     { subject: "baba", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "tree", verb: "is", object: "stop" },
+    {
+      subject: "rock",
+      verb: "is",
+      object: "push",
+      words: ["rock", "is", "push", "and", "slide"],
+    },
+    {
+      subject: "tnt",
+      verb: "is",
+      object: "boom",
+      words: ["tnt", "is", "boom", "and", "fragile"],
+    },
   ],
   areas: [],
   areaMap: emptyAreaMap(13, 9),
   background: (() => {
     const bg = fill(13, 9, BG.jungle);
     stamp(bg, 13, { x: 1, y: 5, w: 10, h: 1 }, BG.dirt);
-    stamp(bg, 13, { x: 10, y: 2, w: 1, h: 4 }, BG.path);
+    stamp(bg, 13, { x: 9, y: 2, w: 1, h: 4 }, BG.path);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 50 },
-  portals: [exitAt(10, 2)],
+  portals: [exitAt(9, 2)],
   entities: [
     ...perimeter(13, 9),
-    // Full fuse already written — walk into TNT to blast the tree seal
-    txt("tnt", 1, 5),
-    txt("is", 2, 5),
-    txt("boom", 3, 5),
-    txt("and", 4, 5),
-    txt("fragile", 5, 5),
-    // Sealed shaft at x=10: walls on both sides
-    ...wallRect(1, 1, 9, 3),
-    ...wallRect(11, 1, 11, 3),
+    ...wallRect(1, 1, 8, 3),
+    ...wallRect(10, 1, 10, 4),
     ...wallRect(1, 6, 11, 7),
-    obj("tree", 10, 3),
-    obj("tnt", 10, 4),
-    obj("baba", 7, 5),
+    // Shaft x=9: EXIT, empty, tree, TNT on corridor
+    obj("tree", 9, 4),
+    obj("tnt", 9, 5),
+    obj("rock", 5, 5),
+    obj("baba", 2, 5),
   ],
 };
 
@@ -744,7 +751,6 @@ export const LEVEL_JUNGLE_4: LevelDocument = {
   camera: { mode: "follow", zoom: 50 },
   entities: [
     ...perimeter(12, 10),
-    // Open (8,1)-(9,1) so you can loop north of the fruit and push it down the shaft
     ...wallRect(1, 1, 7, 1),
     ...wallRect(10, 1, 10, 7),
     ...wallRect(1, 3, 8, 3),
@@ -756,13 +762,13 @@ export const LEVEL_JUNGLE_4: LevelDocument = {
 };
 
 // ---------------------------------------------------------------------------
-// Jungle 5 — Sticky Charge: push armed TNT into a sticky rock jam
+// Jungle 5 — Sticky Charge: side-fuse clears sticky rocks; stay clear of boom
 // ---------------------------------------------------------------------------
 
 export const LEVEL_JUNGLE_5: LevelDocument = {
   id: "level-jungle-5",
   name: "Sticky Charge",
-  width: 12,
+  width: 13,
   height: 9,
   globalRules: [
     { subject: "baba", verb: "is", object: "you" },
@@ -775,37 +781,44 @@ export const LEVEL_JUNGLE_5: LevelDocument = {
       words: ["rock", "is", "sticky"],
     },
     {
-      subject: "tnt",
+      subject: "fruit",
       verb: "is",
       object: "push",
-      words: ["tnt", "is", "push", "and", "boom", "and", "fragile"],
+      words: ["fruit", "is", "push", "and", "slide"],
+    },
+    {
+      subject: "tnt",
+      verb: "is",
+      object: "boom",
+      words: ["tnt", "is", "boom", "and", "fragile"],
     },
   ],
   areas: [],
-  areaMap: emptyAreaMap(12, 9),
+  areaMap: emptyAreaMap(13, 9),
   background: (() => {
-    const bg = fill(12, 9, BG.jungle);
-    stamp(bg, 12, { x: 1, y: 5, w: 9, h: 1 }, BG.dirt);
-    stamp(bg, 12, { x: 9, y: 2, w: 1, h: 4 }, BG.path);
+    const bg = fill(13, 9, BG.jungle);
+    stamp(bg, 13, { x: 1, y: 5, w: 10, h: 1 }, BG.dirt);
+    stamp(bg, 13, { x: 9, y: 2, w: 1, h: 4 }, BG.path);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 50 },
   portals: [exitAt(9, 2)],
   entities: [
-    ...perimeter(12, 9),
+    ...perimeter(13, 9),
     ...wallRect(1, 1, 8, 3),
-    ...wallRect(10, 1, 10, 3),
-    ...wallRect(1, 6, 10, 7),
-    // Sticky rocks seal the shaft; push TNT into them to boom-clear
+    ...wallRect(10, 1, 10, 4),
+    ...wallRect(1, 6, 11, 7),
     obj("rock", 9, 3),
     obj("rock", 9, 4),
-    obj("tnt", 5, 5),
+    obj("tnt", 9, 5),
+    // Fruit fuse slides into TNT; sticky rocks are in the blast ring
+    obj("fruit", 5, 5),
     obj("baba", 2, 5),
   ],
 };
 
 // ---------------------------------------------------------------------------
-// Jungle 6 — Blast Path: push fruit through TNT (boom), then fruit ON door
+// Jungle 6 — Blast Path: side-fuse opens shaft, then fruit ON door
 // ---------------------------------------------------------------------------
 
 export const LEVEL_JUNGLE_6: LevelDocument = {
@@ -818,6 +831,12 @@ export const LEVEL_JUNGLE_6: LevelDocument = {
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "tree", verb: "is", object: "stop" },
     { subject: "fruit", verb: "is", object: "push" },
+    {
+      subject: "rock",
+      verb: "is",
+      object: "push",
+      words: ["rock", "is", "push", "and", "slide"],
+    },
     {
       subject: "tnt",
       verb: "is",
@@ -836,26 +855,26 @@ export const LEVEL_JUNGLE_6: LevelDocument = {
   background: (() => {
     const bg = fill(13, 9, BG.jungle);
     stamp(bg, 13, { x: 1, y: 5, w: 10, h: 1 }, BG.path);
-    stamp(bg, 13, { x: 10, y: 2, w: 1, h: 4 }, BG.dirt);
+    stamp(bg, 13, { x: 9, y: 2, w: 1, h: 4 }, BG.dirt);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 50 },
   entities: [
     ...perimeter(13, 9),
-    // Sealed shaft: only through x=10; (10,6) open so you can push fruit up into TNT
-    ...wallRect(1, 1, 9, 4),
-    ...wallRect(11, 1, 11, 4),
-    ...wallRect(1, 7, 11, 7),
-    obj("door", 10, 2),
-    obj("tree", 10, 3),
-    obj("tnt", 10, 4),
-    obj("fruit", 4, 5),
-    obj("baba", 2, 5),
+    ...wallRect(1, 1, 8, 4),
+    ...wallRect(10, 1, 10, 4),
+    ...wallRect(1, 6, 11, 7),
+    obj("door", 9, 2),
+    obj("tree", 9, 4),
+    obj("tnt", 9, 5),
+    obj("rock", 6, 5),
+    obj("fruit", 3, 5),
+    obj("baba", 1, 5),
   ],
 };
 
 // ---------------------------------------------------------------------------
-// Jungle 7 — Borrowed Fuse: steal FRAGILE from fruit to arm TNT, then ON-win
+// Jungle 7 — And Fragile: arm TNT, side-fuse, then fruit ON door
 // ---------------------------------------------------------------------------
 
 export const LEVEL_JUNGLE_7: LevelDocument = {
@@ -869,6 +888,12 @@ export const LEVEL_JUNGLE_7: LevelDocument = {
     { subject: "tree", verb: "is", object: "stop" },
     { subject: "fruit", verb: "is", object: "push" },
     {
+      subject: "rock",
+      verb: "is",
+      object: "push",
+      words: ["rock", "is", "push", "and", "slide"],
+    },
+    {
       subject: "fruit",
       verb: "is",
       object: "win",
@@ -880,27 +905,27 @@ export const LEVEL_JUNGLE_7: LevelDocument = {
   background: (() => {
     const bg = fill(14, 9, BG.jungle);
     stamp(bg, 14, { x: 1, y: 5, w: 11, h: 1 }, BG.path);
-    stamp(bg, 14, { x: 11, y: 2, w: 1, h: 4 }, BG.dirt);
+    stamp(bg, 14, { x: 10, y: 2, w: 1, h: 4 }, BG.dirt);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 48 },
   entities: [
     ...perimeter(14, 9),
-    // TNT IS BOOM on the bench; push AND + FRAGILE up to arm the fuse
+    // Fully armed on the bench — read it, then side-fuse + ON-win
     txt("tnt", 1, 4),
     txt("is", 2, 4),
     txt("boom", 3, 4),
-    txt("and", 4, 5),
-    txt("fragile", 5, 5),
-    ...wallRect(1, 1, 10, 3),
-    ...wallRect(12, 1, 12, 3),
-    ...wallRect(1, 7, 12, 7),
-    obj("door", 11, 2),
-    obj("tree", 11, 3),
-    obj("tnt", 11, 4),
-    // Fruit waits east of the word work — push onto door after the blast
-    obj("fruit", 8, 5),
-    obj("baba", 2, 6),
+    txt("and", 4, 4),
+    txt("fragile", 5, 4),
+    ...wallRect(1, 1, 9, 3),
+    ...wallRect(11, 1, 11, 4),
+    ...wallRect(1, 6, 12, 7),
+    obj("door", 10, 2),
+    obj("tree", 10, 4),
+    obj("tnt", 10, 5),
+    obj("rock", 6, 5),
+    obj("fruit", 3, 5),
+    obj("baba", 1, 5),
   ],
 };
 
@@ -908,8 +933,8 @@ export const LEVEL_JUNGLE_7: LevelDocument = {
 // Dev World — sandbox for testing properties & combinations (editable globals)
 // ---------------------------------------------------------------------------
 
-const DEV_W = 32;
-const DEV_H = 16;
+const DEV_W = 40;
+const DEV_H = 18;
 
 export const DEV_WORLD: LevelDocument = {
   id: "dev-world",
@@ -924,129 +949,168 @@ export const DEV_WORLD: LevelDocument = {
   ],
   areas: [
     { id: 1, name: "Hub", color: "rgba(80,160,200,0.25)" },
-    { id: 2, name: "Sticky+Push", color: "rgba(200,140,60,0.25)" },
-    { id: 3, name: "Sticky+Pull", color: "rgba(160,100,200,0.25)" },
-    { id: 4, name: "Sticky+Slide", color: "rgba(60,180,120,0.25)" },
-    { id: 5, name: "AND / ON", color: "rgba(220,80,120,0.25)" },
-    { id: 6, name: "Win lab", color: "rgba(220,200,60,0.25)" },
+    { id: 2, name: "Gas", color: "rgba(140,200,160,0.28)" },
+    { id: 3, name: "Dynamic", color: "rgba(200,140,60,0.28)" },
+    { id: 4, name: "Life", color: "rgba(80,180,100,0.28)" },
+    { id: 5, name: "Flux", color: "rgba(160,100,200,0.28)" },
+    { id: 6, name: "Confused", color: "rgba(220,80,120,0.28)" },
+    { id: 7, name: "Sticky", color: "rgba(180,160,80,0.25)" },
+    { id: 8, name: "ON / Win", color: "rgba(220,200,60,0.25)" },
   ],
   areaMap: (() => {
     const am = emptyAreaMap(DEV_W, DEV_H);
-    stampArea(am, DEV_W, { x: 1, y: 1, w: 8, h: 6 }, 1);
-    stampArea(am, DEV_W, { x: 11, y: 1, w: 9, h: 6 }, 2);
-    stampArea(am, DEV_W, { x: 22, y: 1, w: 9, h: 6 }, 3);
-    stampArea(am, DEV_W, { x: 1, y: 9, w: 10, h: 6 }, 4);
-    stampArea(am, DEV_W, { x: 13, y: 9, w: 9, h: 6 }, 5);
-    stampArea(am, DEV_W, { x: 24, y: 9, w: 7, h: 6 }, 6);
+    stampArea(am, DEV_W, { x: 1, y: 1, w: 8, h: 7 }, 1);
+    stampArea(am, DEV_W, { x: 11, y: 1, w: 8, h: 7 }, 2);
+    stampArea(am, DEV_W, { x: 21, y: 1, w: 8, h: 7 }, 3);
+    stampArea(am, DEV_W, { x: 31, y: 1, w: 8, h: 7 }, 4);
+    stampArea(am, DEV_W, { x: 1, y: 10, w: 8, h: 7 }, 5);
+    stampArea(am, DEV_W, { x: 11, y: 10, w: 8, h: 7 }, 6);
+    stampArea(am, DEV_W, { x: 21, y: 10, w: 8, h: 7 }, 7);
+    stampArea(am, DEV_W, { x: 31, y: 10, w: 8, h: 7 }, 8);
     return am;
   })(),
   background: (() => {
     const bg = fill(DEV_W, DEV_H, BG.grass);
-    stamp(bg, DEV_W, { x: 1, y: 1, w: 8, h: 6 }, BG.path);
-    stamp(bg, DEV_W, { x: 11, y: 1, w: 9, h: 6 }, BG.dirt);
-    stamp(bg, DEV_W, { x: 22, y: 1, w: 9, h: 6 }, BG.stone);
-    stamp(bg, DEV_W, { x: 1, y: 9, w: 10, h: 6 }, BG.jungle);
-    stamp(bg, DEV_W, { x: 13, y: 9, w: 9, h: 6 }, BG.flower);
-    stamp(bg, DEV_W, { x: 24, y: 9, w: 7, h: 6 }, BG.grass2);
-    // corridors between rooms
-    stamp(bg, DEV_W, { x: 9, y: 3, w: 2, h: 1 }, BG.path);
-    stamp(bg, DEV_W, { x: 20, y: 3, w: 2, h: 1 }, BG.path);
-    stamp(bg, DEV_W, { x: 4, y: 7, w: 1, h: 2 }, BG.path);
-    stamp(bg, DEV_W, { x: 16, y: 7, w: 1, h: 2 }, BG.path);
-    stamp(bg, DEV_W, { x: 26, y: 7, w: 1, h: 2 }, BG.path);
+    stamp(bg, DEV_W, { x: 1, y: 1, w: 8, h: 7 }, BG.path);
+    stamp(bg, DEV_W, { x: 11, y: 1, w: 8, h: 7 }, BG.dirt);
+    stamp(bg, DEV_W, { x: 21, y: 1, w: 8, h: 7 }, BG.stone);
+    stamp(bg, DEV_W, { x: 31, y: 1, w: 8, h: 7 }, BG.jungle);
+    stamp(bg, DEV_W, { x: 1, y: 10, w: 8, h: 7 }, BG.flower);
+    stamp(bg, DEV_W, { x: 11, y: 10, w: 8, h: 7 }, BG.grass2);
+    stamp(bg, DEV_W, { x: 21, y: 10, w: 8, h: 7 }, BG.dirt);
+    stamp(bg, DEV_W, { x: 31, y: 10, w: 8, h: 7 }, BG.path);
+    // corridors
+    stamp(bg, DEV_W, { x: 9, y: 4, w: 2, h: 1 }, BG.path);
+    stamp(bg, DEV_W, { x: 19, y: 4, w: 2, h: 1 }, BG.path);
+    stamp(bg, DEV_W, { x: 29, y: 4, w: 2, h: 1 }, BG.path);
+    stamp(bg, DEV_W, { x: 4, y: 8, w: 1, h: 2 }, BG.path);
+    stamp(bg, DEV_W, { x: 14, y: 8, w: 1, h: 2 }, BG.path);
+    stamp(bg, DEV_W, { x: 24, y: 8, w: 1, h: 2 }, BG.path);
+    stamp(bg, DEV_W, { x: 34, y: 8, w: 1, h: 2 }, BG.path);
+    stamp(bg, DEV_W, { x: 9, y: 13, w: 2, h: 1 }, BG.path);
+    stamp(bg, DEV_W, { x: 19, y: 13, w: 2, h: 1 }, BG.path);
+    stamp(bg, DEV_W, { x: 29, y: 13, w: 2, h: 1 }, BG.path);
     return bg;
   })(),
-  camera: { mode: "follow", zoom: 44 },
+  camera: { mode: "follow", zoom: 40 },
   spawn: { x: 3, y: 4 },
   entities: (() => {
     const ents: LevelEntitySpec[] = [...perimeter(DEV_W, DEV_H)];
-    // Room dividers with doorways
-    for (let y = 1; y <= 6; y++) {
-      if (y === 3) continue;
-      ents.push(obj("wall", 10, y));
-      ents.push(obj("wall", 21, y));
+    // Vertical dividers (doorways at y=4 and y=13)
+    for (const x of [10, 20, 30]) {
+      for (let y = 1; y <= 7; y++) {
+        if (y === 4) continue;
+        ents.push(obj("wall", x, y));
+      }
+      for (let y = 10; y <= 16; y++) {
+        if (y === 13) continue;
+        ents.push(obj("wall", x, y));
+      }
     }
-    for (let y = 9; y <= 14; y++) {
-      if (y === 11) continue;
-      ents.push(obj("wall", 12, y));
-      ents.push(obj("wall", 23, y));
-    }
-    for (let x = 1; x <= 30; x++) {
-      if (x === 4 || x === 16 || x === 26) continue;
-      ents.push(obj("wall", x, 8));
+    // Horizontal divider (doorways under each column)
+    for (let x = 1; x <= 38; x++) {
+      if (x === 4 || x === 14 || x === 24 || x === 34) continue;
+      ents.push(obj("wall", x, 9));
     }
 
     // Hub
     ents.push(obj("baba", 3, 4));
     ents.push(txt("baba", 2, 1), txt("is", 3, 1), txt("you", 4, 1));
 
-    // Sticky + Push lab — set rock sticky via board; fruit push
+    // Gas lab — fruit drifts in a random walk
     ents.push(
-      txt("rock", 12, 1),
+      txt("fruit", 12, 1),
       txt("is", 13, 1),
-      txt("sticky", 14, 1),
-      txt("fruit", 12, 2),
-      txt("is", 13, 2),
-      txt("push", 14, 2),
-      obj("rock", 15, 4),
-      obj("fruit", 13, 4),
-      obj("rock", 17, 5),
+      txt("gas", 14, 1),
+      obj("fruit", 13, 3),
+      obj("fruit", 15, 5),
+      obj("fruit", 17, 4),
+      obj("wall", 18, 2),
+      obj("wall", 18, 6),
     );
 
-    // Sticky + Pull lab
+    // Dynamic lab — rocks with 2D physics; bump them
     ents.push(
-      txt("rock", 23, 1),
-      txt("is", 24, 1),
-      txt("sticky", 25, 1),
-      txt("and", 26, 1),
-      txt("pull", 27, 1),
-      obj("rock", 25, 4),
-      obj("rock", 27, 4),
+      txt("rock", 22, 1),
+      txt("is", 23, 1),
+      txt("dynamic", 24, 1),
+      obj("rock", 23, 4),
+      obj("rock", 25, 5),
+      obj("rock", 27, 3),
+      obj("wall", 28, 2),
+      obj("wall", 28, 6),
     );
 
-    // Sticky + Slide lab
+    // Life lab — Conway seed (blinker + glider-ish cluster)
     ents.push(
-      txt("fruit", 2, 9),
-      txt("is", 3, 9),
-      txt("slide", 4, 9),
-      txt("and", 5, 9),
-      txt("push", 6, 9),
-      txt("rock", 2, 10),
+      txt("fruit", 32, 1),
+      txt("is", 33, 1),
+      txt("life", 34, 1),
+      // blinker
+      obj("fruit", 33, 4),
+      obj("fruit", 34, 4),
+      obj("fruit", 35, 4),
+      // block
+      obj("fruit", 32, 6),
+      obj("fruit", 33, 6),
+      obj("fruit", 32, 7),
+      obj("fruit", 33, 7),
+    );
+
+    // Flux lab — fruit blinks in/out
+    ents.push(
+      txt("fruit", 2, 10),
       txt("is", 3, 10),
-      txt("sticky", 4, 10),
-      obj("fruit", 3, 12),
-      obj("rock", 5, 12),
-      obj("rock", 6, 11),
-      obj("wall", 10, 12),
+      txt("flux", 4, 10),
+      obj("fruit", 3, 13),
+      obj("fruit", 5, 14),
+      obj("fruit", 7, 12),
     );
 
-    // AND / ON showcase (board sentences; win via fruit on door)
+    // Confused lab — baba-like sheep? Use fruit as you-confused sandbox via second rule
+    // Player can rewrite; showcase: rock is confused + push feels reversed when sliding
     ents.push(
-      txt("fruit", 14, 9),
-      txt("on", 15, 9),
-      txt("door", 16, 9),
-      txt("is", 17, 9),
-      txt("win", 18, 9),
-      txt("fruit", 14, 10),
-      txt("is", 15, 10),
-      txt("push", 16, 10),
-      obj("fruit", 15, 12),
-      obj("door", 18, 12),
-      obj("tree", 20, 11),
-      obj("tree", 20, 12),
-      obj("tree", 20, 13),
+      txt("rock", 12, 10),
+      txt("is", 13, 10),
+      txt("confused", 14, 10),
+      txt("and", 15, 10),
+      txt("slide", 16, 10),
+      txt("rock", 12, 11),
+      txt("is", 13, 11),
+      txt("push", 14, 11),
+      obj("rock", 14, 13),
+      obj("rock", 16, 14),
+      // Optional: make a spare baba confused for local testing
+      txt("baba", 12, 15),
+      txt("is", 13, 15),
+      txt("confused", 14, 15),
     );
 
-    // Win / word lab
+    // Sticky lab (kept)
     ents.push(
-      txt("door", 25, 9),
-      txt("is", 26, 9),
-      txt("win", 27, 9),
-      txt("word", 25, 10),
-      txt("is", 26, 10),
-      txt("push", 27, 10),
-      obj("door", 27, 12),
-      obj("rock", 25, 12),
+      txt("rock", 22, 10),
+      txt("is", 23, 10),
+      txt("sticky", 24, 10),
+      txt("fruit", 22, 11),
+      txt("is", 23, 11),
+      txt("push", 24, 11),
+      obj("rock", 24, 13),
+      obj("fruit", 23, 14),
+      obj("rock", 26, 14),
+    );
+
+    // ON / Win lab
+    ents.push(
+      txt("fruit", 32, 10),
+      txt("on", 33, 10),
+      txt("door", 34, 10),
+      txt("is", 35, 10),
+      txt("win", 36, 10),
+      txt("fruit", 32, 11),
+      txt("is", 33, 11),
+      txt("push", 34, 11),
+      obj("fruit", 33, 13),
+      obj("door", 36, 13),
     );
 
     return ents;

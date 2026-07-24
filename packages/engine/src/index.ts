@@ -27,6 +27,7 @@ export { EntityStore } from "./entity/store";
 export type { EntityKind, EntityRecord } from "./entity/store";
 export { Grid, World } from "./world";
 export type { TextData } from "./world";
+export type { PhysicsBody, FluxLatent } from "./world";
 
 // Lexicon
 export { Lexicon, createDefaultLexicon } from "./lexicon";

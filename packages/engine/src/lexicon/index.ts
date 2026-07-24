@@ -20,6 +20,8 @@ export interface WordDefinition {
   readonly namesProperty?: PropertyId;
   readonly namesOperator?: OperatorId;
   readonly palette?: string;
+  /** Experimental / sandbox-only property or word. */
+  readonly dev?: boolean;
 }
 
 export interface NounDefinition {
@@ -106,7 +108,7 @@ export function createDefaultLexicon(): Lexicon {
     });
   }
 
-  const properties: Array<[string, string]> = [
+  const properties: Array<[string, string, boolean?]> = [
     ["you", "YOU"],
     ["push", "PUSH"],
     ["stop", "STOP"],
@@ -116,15 +118,22 @@ export function createDefaultLexicon(): Lexicon {
     ["win", "WIN"],
     ["boom", "BOOM"],
     ["fragile", "FRAGILE"],
+    // Dev sandbox verbs
+    ["gas", "GAS", true],
+    ["dynamic", "DYNAMIC", true],
+    ["life", "LIFE", true],
+    ["flux", "FLUX", true],
+    ["confused", "CONFUSED", true],
   ];
 
-  for (const [id, label] of properties) {
+  for (const [id, label, dev] of properties) {
     lex.registerWord({
       id: asWordId(id),
       wordClass: "property",
       label,
       namesProperty: asPropertyId(id),
       palette: "text-property",
+      ...(dev ? { dev: true } : {}),
     });
   }
 
