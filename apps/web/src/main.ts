@@ -1,6 +1,7 @@
 import "./styles.css";
 import {
   CAMPAIGN_LEVELS,
+  DEV_WORLD,
   OVERWORLD,
   type LevelDocument,
 } from "@baba/engine";
@@ -21,7 +22,6 @@ function showScreen(id: keyof typeof screens): void {
     el.classList.toggle("is-active", active);
     el.hidden = !active;
   }
-  // close hamburger when leaving play
   const panel = document.querySelector<HTMLElement>("#hamburger-panel");
   if (panel) panel.hidden = true;
 }
@@ -35,6 +35,10 @@ const api: AppApi = {
     const doc = findLevel("overworld") ?? OVERWORLD;
     play.open(doc);
   },
+  openDevWorld() {
+    const doc = findLevel("dev-world") ?? DEV_WORLD;
+    play.open(structuredClone(doc) as LevelDocument);
+  },
 };
 
 const play = mountPlay(api);
@@ -42,6 +46,10 @@ const editor = mountEditor(api);
 
 document.querySelector("[data-action='play']")?.addEventListener("click", () => {
   api.openOverworld();
+});
+
+document.querySelector("[data-action='dev-world']")?.addEventListener("click", () => {
+  api.openDevWorld();
 });
 
 document.querySelector("[data-action='editor']")?.addEventListener("click", () => {
@@ -116,13 +124,20 @@ function showPicker(
   }
 }
 
-// Prevent pull-to-refresh while interacting with game chrome.
 document.addEventListener(
   "touchmove",
   (ev) => {
     const t = ev.target;
     if (!(t instanceof Element)) return;
-    if (t.closest("#rules-list") || t.closest(".tile-drawer") || t.closest(".picker-list")) return;
+    if (
+      t.closest("#rules-list") ||
+      t.closest(".tile-drawer") ||
+      t.closest(".picker-list") ||
+      t.closest(".word-picker") ||
+      t.closest(".dev-rules-panel")
+    ) {
+      return;
+    }
     if (t.closest(".board-shell") || t.closest(".touch-dock") || t.closest("#screen-menu")) {
       if (t.closest("#screen-menu")) return;
       ev.preventDefault();

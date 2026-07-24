@@ -10,7 +10,7 @@ export type {
   LevelPortal,
   LevelChunk,
 } from "./types";
-export { DEFAULT_CAMERA } from "./types";
+export { DEFAULT_CAMERA, globalRuleWords, specFromWords } from "./types";
 
 export {
   BG,
@@ -26,6 +26,7 @@ export {
   LEVEL_SPECIAL,
   LEVEL_JUNGLE_1,
   LEVEL_JUNGLE_2,
+  DEV_WORLD,
   CAMPAIGN_LEVELS,
   INITIAL_UNLOCKS,
 } from "./builtin";

@@ -36,6 +36,7 @@ describe("campaign levels", () => {
       "level-special",
       "level-jungle-1",
       "level-jungle-2",
+      "dev-world",
     ]);
   });
 

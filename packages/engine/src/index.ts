@@ -61,6 +61,7 @@ export {
   tryMove,
   moveAllYou,
   applySlide,
+  applyStickyFollow,
   stepToward,
   applyTransforms,
   resolveOverlaps,
@@ -104,6 +105,7 @@ export {
   LEVEL_SPECIAL,
   LEVEL_JUNGLE_1,
   LEVEL_JUNGLE_2,
+  DEV_WORLD,
   CAMPAIGN_LEVELS,
   INITIAL_UNLOCKS,
   loadDocument,
@@ -117,6 +119,8 @@ export {
   migrateDenseToChunks,
   setChunkCell,
   resolveCamera,
+  globalRuleWords,
+  specFromWords,
 } from "./campaign";
 export type {
   GlobalRuleSpec,

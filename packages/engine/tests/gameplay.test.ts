@@ -299,4 +299,91 @@ baba!,rock!,,,,
     session.dispatch({ type: "wait" });
     expect(session.world.status).toBe("won");
   });
+
+  test("STICKY follows into vacated neighbor including diagonal", () => {
+    const world = loadDocument({
+      id: "sticky-test",
+      name: "sticky",
+      width: 6,
+      height: 4,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "wall", verb: "is", object: "stop" },
+        { subject: "rock", verb: "is", object: "sticky" },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 24 }, () => 0),
+      background: Array.from({ length: 24 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 2, y: 1 },
+        { kind: "object", id: "rock", x: 1, y: 2 },
+      ],
+    });
+    const session = new GameSession(world);
+    session.dispatch({ type: "move", direction: "right" });
+    const rock = session.world.entities.filter((e) => e.noun === asNounId("rock"))[0]!;
+    expect(rock.position).toEqual({ x: 2, y: 1 });
+    expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 3, y: 1 });
+  });
+
+  test("STICKY follows a pushed object and never swaps into the push destination", () => {
+    const world = loadDocument({
+      id: "sticky-push",
+      name: "sticky",
+      width: 7,
+      height: 3,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "fruit", verb: "is", object: "push" },
+        {
+          subject: "rock",
+          verb: "is",
+          object: "sticky",
+          words: ["rock", "is", "sticky"],
+        },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 21 }, () => 0),
+      background: Array.from({ length: 21 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "fruit", x: 2, y: 1 },
+        { kind: "object", id: "rock", x: 2, y: 2 },
+      ],
+    });
+    const session = new GameSession(world);
+    session.dispatch({ type: "move", direction: "right" });
+    const fruit = session.world.entities.filter((e) => e.noun === asNounId("fruit"))[0]!;
+    const rock = session.world.entities.filter((e) => e.noun === asNounId("rock"))[0]!;
+    const baba = session.world.entitiesWithProperty("you")[0]!;
+    // Fruit pushed to (3,1); rock sticky-follows into fruit's vacated (2,1).
+    expect(fruit.position).toEqual({ x: 3, y: 1 });
+    expect(rock.position).toEqual({ x: 2, y: 1 });
+    expect(baba.position).toEqual({ x: 2, y: 1 });
+  });
+
+  test("global AND words expand via parser", () => {
+    const world = loadDocument({
+      id: "and-global",
+      name: "and",
+      width: 4,
+      height: 3,
+      globalRules: [
+        {
+          subject: "baba",
+          verb: "is",
+          object: "you",
+          words: ["baba", "and", "rock", "is", "you"],
+        },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 12 }, () => 0),
+      background: Array.from({ length: 12 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "rock", x: 2, y: 1 },
+      ],
+    });
+    expect(world.entitiesWithProperty("you").length).toBe(2);
+  });
 });

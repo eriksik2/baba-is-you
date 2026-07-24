@@ -68,6 +68,7 @@ export function createDefaultProperties(): PropertyRegistry {
 
   reg.register({ id: asPropertyId("you") });
   reg.register({ id: asPropertyId("slide") });
+  reg.register({ id: asPropertyId("sticky") });
   reg.register({ id: asPropertyId("win") });
 
   return reg;
