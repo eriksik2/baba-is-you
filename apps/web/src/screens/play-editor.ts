@@ -6,7 +6,7 @@ import type {
   LevelEntitySpec,
   PlayerIntent,
   World,
-} from "@baba/engine";
+} from "@sheep/engine";
 import {
   CAMPAIGN_LEVELS,
   DEFAULT_CAMERA,
@@ -20,7 +20,7 @@ import {
   migrateDenseToChunks,
   resolveCamera,
   unlockAfterClear,
-} from "@baba/engine";
+} from "@sheep/engine";
 import { CanvasRenderer, type Camera, type LerpState } from "../render/canvas-renderer";
 import { atlas } from "../render/atlas";
 import { bindControls, type ControlsHandle } from "../input/controls";
@@ -820,7 +820,7 @@ export function mountEditor(api: AppApi): {
         y: settings.y ?? doc.height / 2,
       };
     }
-    const you = doc.entities.find((e) => e.kind === "object" && e.id === "baba");
+    const you = doc.entities.find((e) => e.kind === "object" && e.id === "sheep");
     if (you) return cellCenter(you);
     if (doc.spawn) return cellCenter(doc.spawn);
     return { x: doc.width / 2, y: doc.height / 2 };

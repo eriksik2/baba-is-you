@@ -44,7 +44,7 @@ export interface FluxLatent {
 
 /**
  * Authoritative simulation world.
- * Supports global rules + per-area rule scopes (novel vs classic Baba).
+ * Supports global rules + per-area rule scopes (novel vs classic Sheep Is You).
  */
 export class World {
   readonly lexicon: Lexicon;

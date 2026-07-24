@@ -68,6 +68,9 @@ export {
   applyTransforms,
   resolveOverlaps,
   destroyWithEffects,
+  applyLivingDanger,
+  applyInanimateDanger,
+  applyDangerResolve,
   STICKY_OFFSETS,
 } from "./systems";
 export type { MoveResult, StickyVacancy } from "./systems";
@@ -88,7 +91,7 @@ export {
   loadLevel,
   parseLayout,
   parseCellToken,
-  LEVEL_0_BABA_IS_YOU,
+  LEVEL_0_SHEEP_IS_YOU,
   LEVEL_TINY_SMOKE,
   BUILTIN_LEVELS,
 } from "./level";
@@ -107,6 +110,12 @@ export {
   LEVEL_3,
   LEVEL_4,
   LEVEL_SPECIAL,
+  LEVEL_FLOCK_1,
+  LEVEL_FLOCK_2,
+  LEVEL_FLOCK_3,
+  LEVEL_FLOCK_4,
+  LEVEL_FLOCK_5,
+  LEVEL_FLOCK_6,
   LEVEL_JUNGLE_1,
   LEVEL_JUNGLE_2,
   LEVEL_JUNGLE_3,

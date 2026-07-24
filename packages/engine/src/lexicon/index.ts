@@ -28,6 +28,8 @@ export interface NounDefinition {
   readonly id: NounId;
   readonly label: string;
   readonly palette?: string;
+  /** Creatures / living things — affects DANGER and similar verbs. */
+  readonly living?: boolean;
 }
 
 export class Lexicon {
@@ -80,8 +82,9 @@ export class Lexicon {
 export function createDefaultLexicon(): Lexicon {
   const lex = new Lexicon();
 
-  const nouns: Array<[string, string, string?]> = [
-    ["baba", "Baba", "baba"],
+  const nouns: Array<[string, string, string?, boolean?]> = [
+    ["sheep", "Sheep", "sheep", true],
+    ["wolf", "Wolf", "wolf", true],
     ["wall", "Wall", "wall"],
     ["rock", "Rock", "rock"],
     ["tree", "Tree", "tree"],
@@ -93,11 +96,12 @@ export function createDefaultLexicon(): Lexicon {
     ["word", "Word", "word"],
   ];
 
-  for (const [id, label, palette] of nouns) {
+  for (const [id, label, palette, living] of nouns) {
     lex.registerNoun({
       id: asNounId(id),
       label,
       ...(palette !== undefined ? { palette } : {}),
+      ...(living ? { living: true } : {}),
     });
     lex.registerWord({
       id: asWordId(id),
@@ -118,6 +122,7 @@ export function createDefaultLexicon(): Lexicon {
     ["win", "WIN"],
     ["boom", "BOOM"],
     ["fragile", "FRAGILE"],
+    ["danger", "DANGER"],
     // Dev sandbox verbs
     ["gas", "GAS", true],
     ["dynamic", "DYNAMIC", true],

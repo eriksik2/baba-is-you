@@ -7,10 +7,12 @@
  * Phase order:
  * 1. Apply player intent (move YOU) — skipped on tick/wait
  * 2. SLIDE one tile
- * 3. Rebuild rules if board/text changed
- * 4. Apply transforms (noun IS noun)
- * 5. Rebuild rules again if transforms occurred
- * 6. Resolve overlaps / status (win, defeat, …)
+ * 3. Dev sandbox phases (gas / dynamic / life / flux)
+ * 4. Living DANGER chase
+ * 5. Rebuild rules if board/text changed
+ * 6. Apply transforms (noun IS noun)
+ * 7. Rebuild rules again if transforms occurred
+ * 8. Resolve overlaps / status (win, defeat, DANGER, …)
  */
 
 import type { Direction, GameStatus } from "../types";
@@ -19,7 +21,15 @@ import {
   createDefaultProperties,
   type PropertyRegistry,
 } from "../properties";
-import { applyTransforms, applySlide, moveAllYou, resolveOverlaps } from "../systems";
+import {
+  applyTransforms,
+  applySlide,
+  moveAllYou,
+  resolveOverlaps,
+  applyLivingDanger,
+  applyInanimateDanger,
+  applyDangerResolve,
+} from "../systems";
 import {
   applyGas,
   applyDynamic,
@@ -203,6 +213,29 @@ export const fluxPhase: TurnPhase = {
   },
 };
 
+export const dangerPhase: TurnPhase = {
+  name: "danger",
+  run(ctx) {
+    if (ctx.world.status !== "playing") return;
+    if (
+      ctx.intent.type !== "move" &&
+      ctx.intent.type !== "wait" &&
+      ctx.intent.type !== "tick"
+    ) {
+      return;
+    }
+    // Inanimate hazards first so baited living DANGER dies before it chases.
+    if (applyInanimateDanger(ctx.world)) {
+      ctx.rulesDirty = true;
+      ctx.worldChanged = true;
+    }
+    if (applyLivingDanger(ctx.world, ctx.properties)) {
+      ctx.rulesDirty = true;
+      ctx.worldChanged = true;
+    }
+  },
+};
+
 export const rebuildRulesPhase: TurnPhase = {
   name: "rebuild-rules",
   run(ctx) {
@@ -237,6 +270,9 @@ export const rebuildRulesAfterTransformPhase: TurnPhase = {
 export const resolvePhase: TurnPhase = {
   name: "resolve",
   run(ctx) {
+    if (applyDangerResolve(ctx.world)) {
+      ctx.worldChanged = true;
+    }
     resolveOverlaps(ctx.world, ctx.properties);
   },
 };
@@ -253,6 +289,7 @@ export function createDefaultPipeline(
       dynamicPhase,
       lifePhase,
       fluxPhase,
+      dangerPhase,
       rebuildRulesPhase,
       transformPhase,
       rebuildRulesAfterTransformPhase,

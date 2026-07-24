@@ -1,14 +1,21 @@
-# Baba
+# Sheep Is You
 
-Groundwork for a **Baba Is You**-inspired puzzle game: grid levels, turn-based controls, and a flexible rules engine — built with **Bun** and **TypeScript**.
+A **Sheep Is You** puzzle game: grid levels, realtime-friendly turn pipeline, and a flexible rules engine — built with **Bun** and **TypeScript**.
 
 ## Play
 
 https://eriksik2.github.io/baba-is-you/
 
-Hard-refresh after updates. Play follows you at a fixed zoom. Undo + d-pad always on. Editor: **Board** / **Tools** toggles paint chrome.
+Hard-refresh after updates. Hold a direction to keep moving. Undo + d-pad always on. Editor: **Board** / **Tools** toggles paint chrome.
 
-**Vocabulary (for now):** `baba` `wall` `rock` `is` `you` `push` `stop` `pull`. Levels end on an **EXIT** tile. Campaign is a linear path (I–IV) plus one hard `?` spur at III.
+**Core vocabulary:** `sheep` `wolf` `wall` `rock` `tree` `fruit` `door` `tnt` · `is` `you` `push` `stop` `pull` `slide` `sticky` `win` `boom` `fragile` `danger` · `and` `not` `on`. Levels clear on an **EXIT** tile (or WIN).
+
+## Campaign
+
+- Pastoral path **I–IV** + hard **?** spur
+- **Flock** spur **F1–F6** (sheep, wolf, DANGER)
+- Jungle **J1–J7** (ON win, boom, fragile, sticky)
+- **Dev world** sandbox
 
 ## Format notes
 
@@ -16,11 +23,10 @@ Levels are **chunk-based** (16×16 tiles). Dense authoring still works and is mi
 
 ## What’s new
 
-- Slim vocabulary: **baba / wall / rock / is / you / push / stop / pull**
-- **PULL** — move away from a pullable and it follows (blocks like STOP if you walk into it)
-- Linear overworld (I→IV) + hard **?** spur at III
-- Levels clear on an **EXIT** tile (no flag/win words for now)
-- Rule areas, editor, calm procedural ground
+- **Sheep** is the playable noun (no Baba branding)
+- **WOLF** + **DANGER** — living danger chases YOU; inanimate danger destroys whatever shares its tile
+- Flock levels F1–F6 on the overworld north spur
+- Slide, sticky, boom, fragile, conditional ON win, and sandbox verbs in Dev World
 
 Pushes to `main` deploy via GitHub Actions → Pages.
 
@@ -39,19 +45,17 @@ bun run dev       # Vite client at http://localhost:5173
 | Headless simulation engine | `packages/engine` |
 | Canvas web client | `apps/web` |
 | Architecture notes | `docs/ARCHITECTURE.md` |
-| Sample level (“Baba Is You”) | playable in the web app |
 
 ### Engine capabilities
 
 - Grid world with **stacked** entities per cell
 - **Lexicon**-driven words (nouns, properties, operators) — content-pack friendly
 - Rule scan/parse → **Features** → property / transform indexes
-- Implicit `TEXT IS PUSH`, `AND` expansion, `NOT` cancellation
-- Movement with recursive **PUSH** and **STOP**
-- Turn pipeline (move → reparse → transform → resolve)
-- Win / lose / defeat / sink / hot-melt hooks via property plugins
+- Implicit `TEXT IS PUSH`, `AND` expansion, `NOT` cancellation, `ON` conditions
+- Movement with recursive **PUSH**, **PULL**, **STICKY**, **SLIDE**
+- Turn pipeline (move → slide → danger → reparse → transform → resolve)
+- Win / lose via property plugins + EXIT portals
 - Undo / restart via snapshot history
-- Compact CSV-like level format
 
 ## Project layout
 
@@ -64,9 +68,9 @@ packages/engine/          Pure TS game logic
     lexicon/              Word registry
     rules/                Parser + feature tables
     properties/           Behavior plugins
-    systems/              Movement + effects
+    systems/              Movement + effects + danger
     turn/                 Pipeline + GameSession
-    level/                Format + builtin levels
+    campaign/             Overworld + level documents
     history/              Undo stack
     events/               Typed event bus
 docs/ARCHITECTURE.md
@@ -76,10 +80,11 @@ docs/ARCHITECTURE.md
 
 | Key | Action |
 |-----|--------|
-| Arrows / WASD | Move |
+| Arrows / WASD | Move (hold for realtime) |
 | Z / U | Undo |
 | R | Restart |
 | Space | Wait |
+| +/- / wheel | Play zoom (follow camera) |
 
 ## Design stance
 
@@ -89,4 +94,4 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full picture.
 
 ## License
 
-Fan / learning project. Not affiliated with Hempuli or Baba Is You. Do not ship copyrighted Baba assets.
+Fan / learning project. Not affiliated with Hempuli or *Baba Is You*.

@@ -1,4 +1,4 @@
-import type { Direction, PlayerIntent } from "@baba/engine";
+import type { Direction, PlayerIntent } from "@sheep/engine";
 
 const KEY_TO_DIR: Record<string, Direction> = {
   ArrowUp: "up",

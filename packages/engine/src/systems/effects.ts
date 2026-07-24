@@ -3,7 +3,7 @@ import type { PropertyRegistry } from "../properties";
 import { asOperatorId } from "../types";
 
 /**
- * Apply noun→noun transforms (BABA IS ROCK), including conditional features.
+ * Apply noun→noun transforms (SHEEP IS ROCK), including conditional features.
  * Returns whether any entity changed (triggers rule reparse).
  */
 export function applyTransforms(world: World): boolean {

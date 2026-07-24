@@ -148,6 +148,9 @@ function overworldSolid(): LevelEntitySpec[] {
 
   // West pastoral meadow
   addRect(1, 3, 9, 12);
+  // Flock spur north of the meadow
+  addRect(4, 1, 8, 2);
+  add(6, 3);
   // Bottleneck: only (10,8) links west→east; (10,9) is a dead-end pocket
   add(10, 8);
   add(10, 9);
@@ -182,7 +185,7 @@ export const OVERWORLD: LevelDocument = {
   height: OW_H,
   chunkSize: DEFAULT_CHUNK_SIZE,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "tree", verb: "is", object: "stop" },
     { subject: "rock", verb: "is", object: "push" },
@@ -193,6 +196,7 @@ export const OVERWORLD: LevelDocument = {
     const bg = fill(OW_W, OW_H, BG.grass);
     stamp(bg, OW_W, { x: 0, y: 0, w: 18, h: OW_H }, BG.grass);
     stamp(bg, OW_W, { x: 1, y: 3, w: 9, h: 10 }, BG.grass2);
+    stamp(bg, OW_W, { x: 4, y: 1, w: 5, h: 2 }, BG.flower);
     stamp(bg, OW_W, { x: 3, y: 5, w: 2, h: 2 }, BG.flower);
     stamp(bg, OW_W, { x: 11, y: 6, w: 10, h: 5 }, BG.path);
     stamp(bg, OW_W, { x: 15, y: 11, w: 1, h: 3 }, BG.dirt);
@@ -203,7 +207,7 @@ export const OVERWORLD: LevelDocument = {
   })(),
   entities: [
     ...overworldSolid(),
-    obj("baba", 3, 8),
+    obj("sheep", 3, 8),
     // Mini puzzle: rock blocks the east passage; push it down into the pocket.
     obj("rock", 10, 8),
   ],
@@ -212,6 +216,54 @@ export const OVERWORLD: LevelDocument = {
   camera: { mode: "follow", zoom: 50 },
   portals: [
     { id: "p1", x: 5, y: 7, targetLevelId: "level-1", label: "I" },
+    {
+      id: "pf1",
+      x: 5,
+      y: 1,
+      targetLevelId: "level-flock-1",
+      requires: "level-1",
+      label: "F1",
+    },
+    {
+      id: "pf2",
+      x: 6,
+      y: 1,
+      targetLevelId: "level-flock-2",
+      requires: "level-flock-1",
+      label: "F2",
+    },
+    {
+      id: "pf3",
+      x: 7,
+      y: 1,
+      targetLevelId: "level-flock-3",
+      requires: "level-flock-2",
+      label: "F3",
+    },
+    {
+      id: "pf4",
+      x: 5,
+      y: 2,
+      targetLevelId: "level-flock-4",
+      requires: "level-flock-3",
+      label: "F4",
+    },
+    {
+      id: "pf5",
+      x: 6,
+      y: 2,
+      targetLevelId: "level-flock-5",
+      requires: "level-flock-4",
+      label: "F5",
+    },
+    {
+      id: "pf6",
+      x: 7,
+      y: 2,
+      targetLevelId: "level-flock-6",
+      requires: "level-flock-5",
+      label: "F6",
+    },
     {
       id: "p2",
       x: 12,
@@ -313,7 +365,7 @@ export const LEVEL_1: LevelDocument = {
   name: "Still Walls",
   width: 12,
   height: 9,
-  globalRules: [{ subject: "baba", verb: "is", object: "you" }],
+  globalRules: [{ subject: "sheep", verb: "is", object: "you" }],
   areas: [],
   areaMap: emptyAreaMap(12, 9),
   background: (() => {
@@ -336,7 +388,7 @@ export const LEVEL_1: LevelDocument = {
     obj("wall", 6, 5),
     obj("wall", 6, 6),
     obj("wall", 6, 7),
-    obj("baba", 2, 4),
+    obj("sheep", 2, 4),
   ],
 };
 
@@ -351,7 +403,7 @@ export const LEVEL_2: LevelDocument = {
   width: 12,
   height: 8,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "rock", verb: "is", object: "push" },
   ],
@@ -372,7 +424,7 @@ export const LEVEL_2: LevelDocument = {
     txt("is", 2, 6),
     txt("push", 3, 6),
     ...wallRect(6, 1, 10, 1),
-    obj("baba", 1, 2),
+    obj("sheep", 1, 2),
     obj("rock", 5, 2),
     ...wallRect(1, 3, 4, 3),
     ...wallRect(6, 3, 10, 3),
@@ -393,7 +445,7 @@ export const LEVEL_3: LevelDocument = {
   width: 12,
   height: 9,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "rock", verb: "is", object: "pull" },
   ],
@@ -410,7 +462,7 @@ export const LEVEL_3: LevelDocument = {
   portals: [exitAt(4, 3)],
   entities: [
     ...perimeter(12, 9),
-    obj("baba", 1, 1),
+    obj("sheep", 1, 1),
     ...wallRect(2, 2, 3, 2),
     ...wallRect(5, 2, 10, 2),
     obj("wall", 2, 3),
@@ -436,7 +488,7 @@ export const LEVEL_4: LevelDocument = {
   width: 14,
   height: 10,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "rock", verb: "is", object: "push" },
     { subject: "fruit", verb: "is", object: "pull" },
@@ -461,7 +513,7 @@ export const LEVEL_4: LevelDocument = {
     txt("is", 6, 8),
     txt("pull", 7, 8),
     ...wallRect(6, 1, 12, 1),
-    obj("baba", 1, 2),
+    obj("sheep", 1, 2),
     obj("rock", 5, 2),
     ...wallRect(1, 3, 4, 3),
     ...wallRect(6, 3, 9, 3),
@@ -485,7 +537,7 @@ export const LEVEL_SPECIAL: LevelDocument = {
   width: 14,
   height: 11,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "rock", verb: "is", object: "push" },
     { subject: "fruit", verb: "is", object: "pull" },
@@ -503,7 +555,7 @@ export const LEVEL_SPECIAL: LevelDocument = {
   entities: [
     ...perimeter(14, 11),
     ...wallRect(7, 1, 12, 1),
-    obj("baba", 1, 2),
+    obj("sheep", 1, 2),
     obj("rock", 3, 2),
     obj("wall", 4, 2),
     obj("rock", 6, 2),
@@ -538,7 +590,7 @@ export const LEVEL_JUNGLE_1: LevelDocument = {
   width: 12,
   height: 9,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "tree", verb: "is", object: "stop" },
     { subject: "fruit", verb: "is", object: "push" },
@@ -595,14 +647,14 @@ export const LEVEL_JUNGLE_1: LevelDocument = {
       obj("door", 7, 1),
       // On corridor: facing down is blocked, so it won't drift until pushed
       obj("fruit", 5, 5),
-      obj("baba", 2, 5),
+      obj("sheep", 2, 5),
     );
     return ents;
   })(),
 };
 
 // ---------------------------------------------------------------------------
-// Jungle 2 — Slip: baba is you + slide; narrow lanes; reach EXIT
+// Jungle 2 — Slip: sheep is you + slide; narrow lanes; reach EXIT
 // ---------------------------------------------------------------------------
 
 export const LEVEL_JUNGLE_2: LevelDocument = {
@@ -611,8 +663,8 @@ export const LEVEL_JUNGLE_2: LevelDocument = {
   width: 12,
   height: 10,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
-    { subject: "baba", verb: "is", object: "slide" },
+    { subject: "sheep", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "slide" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "rock", verb: "is", object: "stop" },
   ],
@@ -655,12 +707,12 @@ export const LEVEL_JUNGLE_2: LevelDocument = {
     ents.push(
       obj("rock", 2, 5),
       obj("rock", 9, 4),
-      txt("baba", 10, 3),
+      txt("sheep", 10, 3),
       txt("is", 10, 4),
       txt("you", 10, 5),
       txt("and", 10, 6),
       txt("slide", 10, 7),
-      obj("baba", 2, 2),
+      obj("sheep", 2, 2),
     );
     return ents;
   })(),
@@ -676,7 +728,7 @@ export const LEVEL_JUNGLE_3: LevelDocument = {
   width: 13,
   height: 9,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "tree", verb: "is", object: "stop" },
     {
@@ -711,7 +763,7 @@ export const LEVEL_JUNGLE_3: LevelDocument = {
     obj("tree", 9, 4),
     obj("tnt", 9, 5),
     obj("rock", 5, 5),
-    obj("baba", 2, 5),
+    obj("sheep", 2, 5),
   ],
 };
 
@@ -725,7 +777,7 @@ export const LEVEL_JUNGLE_4: LevelDocument = {
   width: 12,
   height: 10,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     {
       subject: "fruit",
@@ -757,7 +809,7 @@ export const LEVEL_JUNGLE_4: LevelDocument = {
     ...wallRect(1, 4, 8, 8),
     obj("door", 9, 6),
     obj("fruit", 4, 2),
-    obj("baba", 1, 2),
+    obj("sheep", 1, 2),
   ],
 };
 
@@ -771,7 +823,7 @@ export const LEVEL_JUNGLE_5: LevelDocument = {
   width: 13,
   height: 9,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "rock", verb: "is", object: "stop" },
     {
@@ -813,7 +865,7 @@ export const LEVEL_JUNGLE_5: LevelDocument = {
     obj("tnt", 9, 5),
     // Fruit fuse slides into TNT; sticky rocks are in the blast ring
     obj("fruit", 5, 5),
-    obj("baba", 2, 5),
+    obj("sheep", 2, 5),
   ],
 };
 
@@ -827,7 +879,7 @@ export const LEVEL_JUNGLE_6: LevelDocument = {
   width: 13,
   height: 9,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "tree", verb: "is", object: "stop" },
     { subject: "fruit", verb: "is", object: "push" },
@@ -869,7 +921,7 @@ export const LEVEL_JUNGLE_6: LevelDocument = {
     obj("tnt", 9, 5),
     obj("rock", 6, 5),
     obj("fruit", 3, 5),
-    obj("baba", 1, 5),
+    obj("sheep", 1, 5),
   ],
 };
 
@@ -883,7 +935,7 @@ export const LEVEL_JUNGLE_7: LevelDocument = {
   width: 14,
   height: 9,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
     { subject: "tree", verb: "is", object: "stop" },
     { subject: "fruit", verb: "is", object: "push" },
@@ -925,7 +977,7 @@ export const LEVEL_JUNGLE_7: LevelDocument = {
     obj("tnt", 10, 5),
     obj("rock", 6, 5),
     obj("fruit", 3, 5),
-    obj("baba", 1, 5),
+    obj("sheep", 1, 5),
   ],
 };
 
@@ -943,7 +995,7 @@ export const DEV_WORLD: LevelDocument = {
   height: DEV_H,
   chunkSize: DEFAULT_CHUNK_SIZE,
   globalRules: [
-    { subject: "baba", verb: "is", object: "you", words: ["baba", "is", "you"] },
+    { subject: "sheep", verb: "is", object: "you", words: ["sheep", "is", "you"] },
     { subject: "wall", verb: "is", object: "stop", words: ["wall", "is", "stop"] },
     { subject: "tree", verb: "is", object: "stop", words: ["tree", "is", "stop"] },
   ],
@@ -1014,8 +1066,8 @@ export const DEV_WORLD: LevelDocument = {
     }
 
     // Hub
-    ents.push(obj("baba", 3, 4));
-    ents.push(txt("baba", 2, 1), txt("is", 3, 1), txt("you", 4, 1));
+    ents.push(obj("sheep", 3, 4));
+    ents.push(txt("sheep", 2, 1), txt("is", 3, 1), txt("you", 4, 1));
 
     // Gas lab — fruit drifts in a random walk
     ents.push(
@@ -1067,7 +1119,7 @@ export const DEV_WORLD: LevelDocument = {
       obj("fruit", 7, 12),
     );
 
-    // Confused lab — baba-like sheep? Use fruit as you-confused sandbox via second rule
+    // Confused lab — reverse facing while sliding
     // Player can rewrite; showcase: rock is confused + push feels reversed when sliding
     ents.push(
       txt("rock", 12, 10),
@@ -1080,10 +1132,23 @@ export const DEV_WORLD: LevelDocument = {
       txt("push", 14, 11),
       obj("rock", 14, 13),
       obj("rock", 16, 14),
-      // Optional: make a spare baba confused for local testing
-      txt("baba", 12, 15),
+      txt("sheep", 12, 15),
       txt("is", 13, 15),
       txt("confused", 14, 15),
+    );
+
+    // Danger lab — living wolf chase + inanimate rock hazard
+    ents.push(
+      txt("wolf", 22, 10),
+      txt("is", 23, 10),
+      txt("danger", 24, 10),
+      obj("wolf", 24, 12),
+      txt("rock", 22, 14),
+      txt("is", 23, 14),
+      txt("danger", 24, 14),
+      txt("and", 25, 14),
+      txt("push", 26, 14),
+      obj("rock", 24, 16),
     );
 
     // Sticky lab (kept)
@@ -1117,6 +1182,224 @@ export const DEV_WORLD: LevelDocument = {
   })(),
 };
 
+// ---------------------------------------------------------------------------
+// Flock 1 — Sheep Is You (intro)
+// ---------------------------------------------------------------------------
+
+export const LEVEL_FLOCK_1: LevelDocument = {
+  id: "level-flock-1",
+  name: "Sheep Is You",
+  width: 11,
+  height: 8,
+  globalRules: [
+    { subject: "sheep", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(11, 8),
+  background: (() => {
+    const bg = fill(11, 8, BG.grass);
+    stamp(bg, 11, { x: 1, y: 1, w: 9, h: 6 }, BG.grass2);
+    stamp(bg, 11, { x: 8, y: 3, w: 1, h: 1 }, BG.flower);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 52 },
+  portals: [exitAt(9, 4)],
+  entities: [
+    ...perimeter(11, 8),
+    txt("sheep", 2, 1),
+    txt("is", 3, 1),
+    txt("you", 4, 1),
+    obj("sheep", 2, 4),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Flock 2 — Hungry: living DANGER chases YOU
+// ---------------------------------------------------------------------------
+
+export const LEVEL_FLOCK_2: LevelDocument = {
+  id: "level-flock-2",
+  name: "Hungry",
+  width: 13,
+  height: 9,
+  globalRules: [
+    { subject: "sheep", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "wolf", verb: "is", object: "danger" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(13, 9),
+  background: (() => {
+    const bg = fill(13, 9, BG.grass);
+    stamp(bg, 13, { x: 1, y: 1, w: 11, h: 7 }, BG.path);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 50 },
+  portals: [exitAt(1, 1)],
+  entities: [
+    ...perimeter(13, 9),
+    // Divider so the wolf takes the long way while you slip to the north exit
+    ...wallRect(6, 2, 6, 7),
+    obj("wall", 5, 4),
+    obj("wall", 7, 4),
+    txt("wolf", 8, 1),
+    txt("is", 9, 1),
+    txt("danger", 10, 1),
+    obj("sheep", 2, 7),
+    obj("wolf", 11, 7),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Flock 3 — Cursed Stone: inanimate DANGER destroys same-tile
+// ---------------------------------------------------------------------------
+
+export const LEVEL_FLOCK_3: LevelDocument = {
+  id: "level-flock-3",
+  name: "Cursed Stone",
+  width: 12,
+  height: 8,
+  globalRules: [
+    { subject: "sheep", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "push" },
+    { subject: "rock", verb: "is", object: "danger" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(12, 8),
+  background: (() => {
+    const bg = fill(12, 8, BG.dirt);
+    stamp(bg, 12, { x: 1, y: 1, w: 10, h: 6 }, BG.stone);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 52 },
+  portals: [exitAt(10, 4)],
+  entities: [
+    ...perimeter(12, 8),
+    // Rock sits on the exit — push it north/south off the tile, never step on it
+    obj("rock", 10, 4),
+    txt("rock", 2, 1),
+    txt("is", 3, 1),
+    txt("danger", 4, 1),
+    obj("sheep", 2, 4),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Flock 4 — Break the Hunt: dismantle WOLF IS DANGER
+// ---------------------------------------------------------------------------
+
+export const LEVEL_FLOCK_4: LevelDocument = {
+  id: "level-flock-4",
+  name: "Break the Hunt",
+  width: 14,
+  height: 9,
+  globalRules: [
+    { subject: "sheep", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(14, 9),
+  background: (() => {
+    const bg = fill(14, 9, BG.grass);
+    stamp(bg, 14, { x: 1, y: 1, w: 12, h: 7 }, BG.grass2);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 48 },
+  portals: [exitAt(12, 4)],
+  entities: [
+    ...perimeter(14, 9),
+    // Safe alcove for the rule words (south); wolf patrols the open hall
+    ...wallRect(1, 5, 5, 5),
+    obj("wall", 5, 6),
+    obj("wall", 5, 7),
+    txt("wolf", 2, 6),
+    txt("is", 3, 6),
+    txt("danger", 4, 6),
+    // Push DANGER up to break the sentence, then cross past the wolf
+    obj("sheep", 2, 2),
+    obj("wolf", 8, 4),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Flock 5 — Bait: push inanimate DANGER onto the wolf
+// ---------------------------------------------------------------------------
+
+export const LEVEL_FLOCK_5: LevelDocument = {
+  id: "level-flock-5",
+  name: "Bait",
+  width: 13,
+  height: 9,
+  globalRules: [
+    { subject: "sheep", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "push" },
+    { subject: "rock", verb: "is", object: "danger" },
+    { subject: "wolf", verb: "is", object: "danger" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(13, 9),
+  background: (() => {
+    const bg = fill(13, 9, BG.grass);
+    stamp(bg, 13, { x: 1, y: 1, w: 11, h: 7 }, BG.path);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 50 },
+  portals: [exitAt(11, 7)],
+  entities: [
+    ...perimeter(13, 9),
+    // Narrow lane: wolf blocks the east; push cursed rock into it
+    ...wallRect(6, 1, 6, 5),
+    ...wallRect(8, 3, 8, 7),
+    obj("rock", 4, 4),
+    obj("sheep", 2, 4),
+    obj("wolf", 10, 4),
+    txt("rock", 2, 1),
+    txt("is", 3, 1),
+    txt("danger", 4, 1),
+    txt("wolf", 9, 1),
+    txt("is", 10, 1),
+    txt("danger", 11, 1),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Flock 6 — Coast: SLIDE + living DANGER
+// ---------------------------------------------------------------------------
+
+export const LEVEL_FLOCK_6: LevelDocument = {
+  id: "level-flock-6",
+  name: "Coast",
+  width: 14,
+  height: 8,
+  globalRules: [
+    { subject: "sheep", verb: "is", object: "you" },
+    { subject: "sheep", verb: "is", object: "slide" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "wolf", verb: "is", object: "danger" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(14, 8),
+  background: (() => {
+    const bg = fill(14, 8, BG.grass);
+    stamp(bg, 14, { x: 1, y: 1, w: 12, h: 6 }, BG.flower);
+    stamp(bg, 14, { x: 1, y: 3, w: 12, h: 2 }, BG.path);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 48 },
+  portals: [exitAt(12, 4)],
+  entities: [
+    ...perimeter(14, 8),
+    // Ice lane y=3..4; wolf on the south — slide east to exit before contact
+    ...wallRect(1, 1, 12, 2),
+    ...wallRect(1, 5, 10, 6),
+    obj("sheep", 2, 4),
+    obj("wolf", 7, 6),
+  ],
+};
+
 export const CAMPAIGN_LEVELS: LevelDocument[] = [
   OVERWORLD,
   LEVEL_1,
@@ -1124,6 +1407,12 @@ export const CAMPAIGN_LEVELS: LevelDocument[] = [
   LEVEL_3,
   LEVEL_4,
   LEVEL_SPECIAL,
+  LEVEL_FLOCK_1,
+  LEVEL_FLOCK_2,
+  LEVEL_FLOCK_3,
+  LEVEL_FLOCK_4,
+  LEVEL_FLOCK_5,
+  LEVEL_FLOCK_6,
   LEVEL_JUNGLE_1,
   LEVEL_JUNGLE_2,
   LEVEL_JUNGLE_3,

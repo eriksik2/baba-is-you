@@ -3,7 +3,7 @@ import { asEntityId } from "../types";
 
 /**
  * What kind of thing an entity is on the board.
- * - object: physical instance of a noun (baba, wall, …)
+ * - object: physical instance of a noun (sheep, wall, …)
  * - text: rule-forming word tile
  */
 export type EntityKind = "object" | "text";

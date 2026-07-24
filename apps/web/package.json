@@ -1,5 +1,5 @@
 {
-  "name": "@baba/web",
+  "name": "@sheep/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@baba/engine": "workspace:*"
+    "@sheep/engine": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

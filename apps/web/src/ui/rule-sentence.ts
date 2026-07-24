@@ -3,8 +3,8 @@
  * Empty slots open a tabbed word picker; AND / ON insert extra holes.
  */
 
-import type { GlobalRuleSpec, Lexicon } from "@baba/engine";
-import { createDefaultLexicon, globalRuleWords, specFromWords } from "@baba/engine";
+import type { GlobalRuleSpec, Lexicon } from "@sheep/engine";
+import { createDefaultLexicon, globalRuleWords, specFromWords } from "@sheep/engine";
 
 export type WordPickTab = "nouns" | "properties" | "ops";
 
@@ -185,8 +185,8 @@ export function mountRuleSentenceEditor(host: RuleSentenceHost): {
         // Keep partial as words with placeholders stripped for storage mirrors
         const partial = tokens.filter((t): t is string => !!t);
         rules[idx] = {
-          words: partial.length ? partial : ["baba", "is", "you"],
-          subject: partial[0] ?? "baba",
+          words: partial.length ? partial : ["sheep", "is", "you"],
+          subject: partial[0] ?? "sheep",
           verb: "is",
           object: partial[partial.length - 1] ?? "you",
         };
@@ -262,5 +262,5 @@ export function mountRuleSentenceEditor(host: RuleSentenceHost): {
 }
 
 export function emptyGlobalRule(): GlobalRuleSpec {
-  return specFromWords(["baba", "is", "you"]);
+  return specFromWords(["sheep", "is", "you"]);
 }

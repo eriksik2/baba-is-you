@@ -1,6 +1,6 @@
 # Architecture
 
-This project is a **Baba Is You–inspired** puzzle engine. The design prioritizes a headless, testable core and a rules system that can grow toward the real game’s complexity without rewriting movement or rendering.
+This project is a **Sheep Is You–inspired** puzzle engine. The design prioritizes a headless, testable core and a rules system that can grow toward the real game’s complexity without rewriting movement or rendering.
 
 ## Goals
 
@@ -18,7 +18,7 @@ docs/             Design notes
 levels/           Future external level packs (engine also embeds builtins)
 ```
 
-Bun workspaces keep the engine importable as `@baba/engine` while the web app hot-reloads against TypeScript source (internal packages pattern).
+Bun workspaces keep the engine importable as `@sheep/engine` while the web app hot-reloads against TypeScript source (internal packages pattern).
 
 ## Layering
 
@@ -50,7 +50,7 @@ Bun workspaces keep the engine importable as `@baba/engine` while the web app ho
 
 - `EntityStore` — opaque `EntityId`s, recycled on destroy
 - `Grid` — spatial index; each cell is an ordered stack
-- Kinds: `object` (baba, wall, …) and `text` (rule tiles)
+- Kinds: `object` (sheep, wall, …) and `text` (rule tiles)
 - Text always queries as noun `text` so the implicit rule `TEXT IS PUSH` applies
 
 ### Lexicon (content pack seam)
@@ -59,7 +59,7 @@ Bun workspaces keep the engine importable as `@baba/engine` while the web app ho
 
 | Class | Examples | Role |
 |-------|----------|------|
-| noun | BABA, WALL | Subject / transform target |
+| noun | SHEEP, WALL | Subject / transform target |
 | property | YOU, PUSH, STOP | Granted abilities |
 | operator | IS, AND, NOT, HAS | Grammar glue |
 | prefix / infix | LONELY, ON, NEAR | Reserved for conditions |

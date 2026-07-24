@@ -2,6 +2,7 @@ export { tryMove, tryEnterCell, moveAllYou, applyPullChain, applyStickyFollow, a
 export type { MoveResult, StickyVacancy } from "./movement";
 export { applyTransforms, resolveOverlaps } from "./effects";
 export { destroyWithEffects } from "./destroy";
+export { applyLivingDanger, applyInanimateDanger, applyDangerResolve } from "./danger";
 export {
   applyGas,
   applyDynamic,

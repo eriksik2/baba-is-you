@@ -40,7 +40,7 @@ function play(session: GameSession, path: string) {
 }
 
 describe("campaign levels", () => {
-  test("campaign has overworld + 4 levels + special + jungle + dev", () => {
+  test("campaign has overworld + pastoral + flock + jungle + dev", () => {
     const ids = CAMPAIGN_LEVELS.map((l) => l.id);
     expect(ids).toEqual([
       "overworld",
@@ -49,6 +49,12 @@ describe("campaign levels", () => {
       "level-3",
       "level-4",
       "level-special",
+      "level-flock-1",
+      "level-flock-2",
+      "level-flock-3",
+      "level-flock-4",
+      "level-flock-5",
+      "level-flock-6",
       "level-jungle-1",
       "level-jungle-2",
       "level-jungle-3",
@@ -60,10 +66,16 @@ describe("campaign levels", () => {
     ]);
   });
 
-  test("overworld is linear with special spur and jungle portals", () => {
+  test("overworld has flock spur, special spur, and jungle portals", () => {
     const portals = OVERWORLD.portals ?? [];
     expect(portals.map((p) => p.label)).toEqual([
       "I",
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
       "II",
       "III",
       "?",
@@ -77,6 +89,7 @@ describe("campaign levels", () => {
       "J7",
     ]);
     expect(portals.find((p) => p.special)?.requires).toBe("level-2");
+    expect(portals.find((p) => p.label === "F1")?.requires).toBe("level-1");
     expect(portals.find((p) => p.label === "J1")?.requires).toBe("level-4");
     expect(portals.find((p) => p.label === "J2")?.requires).toBe("level-jungle-1");
     expect(portals.find((p) => p.label === "J3")?.requires).toBe("level-jungle-2");

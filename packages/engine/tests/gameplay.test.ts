@@ -3,7 +3,7 @@ import {
   GameSession,
   loadLevel,
   LEVEL_TINY_SMOKE,
-  LEVEL_0_BABA_IS_YOU,
+  LEVEL_0_SHEEP_IS_YOU,
   loadDocument,
   LEVEL_1,
   asNounId,
@@ -16,8 +16,8 @@ describe("movement and session", () => {
       id: "m1",
       name: "move",
       layout: `
-baba,is,you,,
-baba!,,,,
+sheep,is,you,,
+sheep!,,,,
 `,
     });
     const session = new GameSession(world);
@@ -34,14 +34,14 @@ baba!,,,,
       id: "m2",
       name: "stop",
       layout: `
-baba,is,you,wall,is,stop
-baba!,wall!,,,,
+sheep,is,you,wall,is,stop
+sheep!,wall!,,,,
 `,
     });
     const session = new GameSession(world);
     session.dispatch({ type: "move", direction: "right" });
-    const baba = session.world.entitiesWithProperty("you")[0]!;
-    expect(baba.position).toEqual({ x: 0, y: 1 });
+    const sheep = session.world.entitiesWithProperty("you")[0]!;
+    expect(sheep.position).toEqual({ x: 0, y: 1 });
   });
 
   test("PUSH moves text and updates rules", () => {
@@ -49,8 +49,8 @@ baba!,wall!,,,,
       id: "m3",
       name: "push",
       layout: `
-baba,is,you,,,,
-baba!,wall,is,stop,,
+sheep,is,you,,,,
+sheep!,wall,is,stop,,
 `,
     });
     const session = new GameSession(world);
@@ -68,24 +68,24 @@ baba!,wall,is,stop,,
       width: 6,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "rock", verb: "is", object: "pull" },
       ],
       areas: [],
       areaMap: Array.from({ length: 18 }, () => 0),
       background: Array.from({ length: 18 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 2, y: 1 },
+        { kind: "object", id: "sheep", x: 2, y: 1 },
         { kind: "object", id: "rock", x: 3, y: 1 },
       ],
     });
     const session = new GameSession(world);
     session.dispatch({ type: "move", direction: "left" });
-    const baba = session.world.entitiesWithProperty("you")[0]!;
+    const sheep = session.world.entitiesWithProperty("you")[0]!;
     const rock = session.world.entities.filter(
       (e) => e.kind === "object" && e.noun === asNounId("rock"),
     )[0]!;
-    expect(baba.position).toEqual({ x: 1, y: 1 });
+    expect(sheep.position).toEqual({ x: 1, y: 1 });
     expect(rock.position).toEqual({ x: 2, y: 1 });
   });
 
@@ -96,14 +96,14 @@ baba!,wall,is,stop,,
       width: 5,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "rock", verb: "is", object: "pull" },
       ],
       areas: [],
       areaMap: Array.from({ length: 15 }, () => 0),
       background: Array.from({ length: 15 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "sheep", x: 1, y: 1 },
         { kind: "object", id: "rock", x: 2, y: 1 },
       ],
     });
@@ -118,11 +118,11 @@ baba!,wall,is,stop,,
       name: "exit",
       width: 4,
       height: 3,
-      globalRules: [{ subject: "baba", verb: "is", object: "you" }],
+      globalRules: [{ subject: "sheep", verb: "is", object: "you" }],
       areas: [],
       areaMap: Array.from({ length: 12 }, () => 0),
       background: Array.from({ length: 12 }, () => "grass"),
-      entities: [{ kind: "object", id: "baba", x: 0, y: 1 }],
+      entities: [{ kind: "object", id: "sheep", x: 0, y: 1 }],
       portals: [
         {
           id: "exit",
@@ -148,22 +148,22 @@ baba!,wall,is,stop,,
     expect(session.world.entitiesWithProperty("you")[0]!.position.x).toBe(0);
   });
 
-  test("breaking BABA IS YOU causes loss", () => {
+  test("breaking SHEEP IS YOU causes loss", () => {
     const world = loadLevel({
       id: "lose2",
       name: "lose2",
       layout: `
-baba,is,you,,
-baba!,,,,
+sheep,is,you,,
+sheep!,,,,
 `,
     });
     const session = new GameSession(world);
     // Push YOU text away by walking up into the row and shoving — simpler: transform
     // Destroy YOU by making wall is you then... use wait after removing you via push.
     // Stand below "you" and we can't easily. Simulate loss: move until no you.
-    // Push the you word: baba at 0,1; you at 2,0. Path up then right.
-    session.dispatch({ type: "move", direction: "up" }); // (0,0) onto baba text stack? baba text at 0,0
-    // Actually cell (0,0) has baba text. Moving up from (0,1) onto (0,0) stacks with text.
+    // Push the you word: sheep at 0,1; you at 2,0. Path up then right.
+    session.dispatch({ type: "move", direction: "up" }); // (0,0) onto sheep text stack? sheep text at 0,0
+    // Actually cell (0,0) has sheep text. Moving up from (0,1) onto (0,0) stacks with text.
     // Push is right along row 0: need to get to (1,0) and push is/you.
     session.dispatch({ type: "move", direction: "right" }); // push IS?
     session.dispatch({ type: "move", direction: "right" });
@@ -172,20 +172,20 @@ baba!,,,,
   });
 
   test("level 0 loads with expected rules", () => {
-    const world = loadLevel(LEVEL_0_BABA_IS_YOU);
-    const baba = world.entities.filter(
-      (e) => e.kind === "object" && e.noun === asNounId("baba"),
+    const world = loadLevel(LEVEL_0_SHEEP_IS_YOU);
+    const sheep = world.entities.filter(
+      (e) => e.kind === "object" && e.noun === asNounId("sheep"),
     )[0]!;
-    expect(world.hasProperty(baba, asPropertyId("you"))).toBe(true);
+    expect(world.hasProperty(sheep, asPropertyId("you"))).toBe(true);
   });
 
-  test("noun transform ROCK IS BABA", () => {
+  test("noun transform ROCK IS SHEEP", () => {
     const world = loadLevel({
       id: "xf",
       name: "xf",
       layout: `
-baba,is,you,rock,is,baba
-baba!,rock!,,,,
+sheep,is,you,rock,is,sheep
+sheep!,rock!,,,,
 `,
     });
     const session = new GameSession(world);
@@ -193,11 +193,11 @@ baba!,rock!,,,,
     const rocks = session.world.entities.filter(
       (e) => e.kind === "object" && e.noun === asNounId("rock"),
     );
-    const babas = session.world.entities.filter(
-      (e) => e.kind === "object" && e.noun === asNounId("baba"),
+    const sheepObjs = session.world.entities.filter(
+      (e) => e.kind === "object" && e.noun === asNounId("sheep"),
     );
     expect(rocks.length).toBe(0);
-    expect(babas.length).toBe(2);
+    expect(sheepObjs.length).toBe(2);
   });
 
   test("level-1 is solvable by breaking STOP and reaching EXIT", () => {
@@ -229,8 +229,8 @@ baba!,rock!,,,,
       width: 8,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
-        { subject: "baba", verb: "is", object: "slide" },
+        { subject: "sheep", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "slide" },
         { subject: "wall", verb: "is", object: "stop" },
       ],
       areas: [],
@@ -239,7 +239,7 @@ baba!,rock!,,,,
       entities: [
         { kind: "object", id: "wall", x: 0, y: 1 },
         { kind: "object", id: "wall", x: 7, y: 1 },
-        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "sheep", x: 1, y: 1 },
       ],
     });
     const session = new GameSession(world);
@@ -258,7 +258,7 @@ baba!,rock!,,,,
       name: "on",
       width: 6,
       height: 3,
-      globalRules: [{ subject: "baba", verb: "is", object: "you" }],
+      globalRules: [{ subject: "sheep", verb: "is", object: "you" }],
       areas: [],
       areaMap: Array.from({ length: 18 }, () => 0),
       background: Array.from({ length: 18 }, () => "grass"),
@@ -268,7 +268,7 @@ baba!,rock!,,,,
         { kind: "text", id: "door", x: 2, y: 0 },
         { kind: "text", id: "is", x: 3, y: 0 },
         { kind: "text", id: "win", x: 4, y: 0 },
-        { kind: "object", id: "baba", x: 0, y: 2 },
+        { kind: "object", id: "sheep", x: 0, y: 2 },
         { kind: "object", id: "fruit", x: 1, y: 2 },
         { kind: "object", id: "door", x: 1, y: 2 },
       ],
@@ -288,7 +288,7 @@ baba!,rock!,,,,
       width: 6,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "fruit", verb: "is", object: "fragile" },
         { subject: "wall", verb: "is", object: "stop" },
       ],
@@ -296,7 +296,7 @@ baba!,rock!,,,,
       areaMap: Array.from({ length: 18 }, () => 0),
       background: Array.from({ length: 18 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "sheep", x: 1, y: 1 },
         { kind: "object", id: "fruit", x: 2, y: 1 },
         { kind: "object", id: "wall", x: 0, y: 1 },
         { kind: "object", id: "wall", x: 5, y: 1 },
@@ -314,7 +314,7 @@ baba!,rock!,,,,
       width: 5,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         {
           subject: "tnt",
           verb: "is",
@@ -327,7 +327,7 @@ baba!,rock!,,,,
       areaMap: Array.from({ length: 15 }, () => 0),
       background: Array.from({ length: 15 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "sheep", x: 1, y: 1 },
         { kind: "object", id: "tnt", x: 2, y: 1 },
         { kind: "object", id: "tree", x: 3, y: 1 },
       ],
@@ -348,7 +348,7 @@ baba!,rock!,,,,
       width: 8,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "rock", verb: "is", object: "push" },
         {
           subject: "tnt",
@@ -362,7 +362,7 @@ baba!,rock!,,,,
       areaMap: Array.from({ length: 24 }, () => 0),
       background: Array.from({ length: 24 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "sheep", x: 1, y: 1 },
         { kind: "object", id: "rock", x: 2, y: 1 },
         { kind: "object", id: "tnt", x: 4, y: 1 },
         { kind: "object", id: "tree", x: 5, y: 1 },
@@ -385,14 +385,14 @@ baba!,rock!,,,,
       width: 5,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "word", verb: "is", object: "win" },
       ],
       areas: [],
       areaMap: Array.from({ length: 15 }, () => 0),
       background: Array.from({ length: 15 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "sheep", x: 1, y: 1 },
         { kind: "text", id: "rock", x: 1, y: 1 },
       ],
     });
@@ -410,7 +410,7 @@ baba!,rock!,,,,
       width: 6,
       height: 4,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "wall", verb: "is", object: "stop" },
         { subject: "rock", verb: "is", object: "sticky" },
       ],
@@ -418,7 +418,7 @@ baba!,rock!,,,,
       areaMap: Array.from({ length: 24 }, () => 0),
       background: Array.from({ length: 24 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 2, y: 1 },
+        { kind: "object", id: "sheep", x: 2, y: 1 },
         { kind: "object", id: "rock", x: 1, y: 2 },
       ],
     });
@@ -436,7 +436,7 @@ baba!,rock!,,,,
       width: 7,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "fruit", verb: "is", object: "push" },
         {
           subject: "rock",
@@ -449,7 +449,7 @@ baba!,rock!,,,,
       areaMap: Array.from({ length: 21 }, () => 0),
       background: Array.from({ length: 21 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "sheep", x: 1, y: 1 },
         { kind: "object", id: "fruit", x: 2, y: 1 },
         { kind: "object", id: "rock", x: 2, y: 2 },
       ],
@@ -458,30 +458,30 @@ baba!,rock!,,,,
     session.dispatch({ type: "move", direction: "right" });
     const fruit = session.world.entities.filter((e) => e.noun === asNounId("fruit"))[0]!;
     const rock = session.world.entities.filter((e) => e.noun === asNounId("rock"))[0]!;
-    const baba = session.world.entitiesWithProperty("you")[0]!;
+    const sheep = session.world.entitiesWithProperty("you")[0]!;
     // Fruit pushed to (3,1); rock sticky-follows into fruit's vacated (2,1).
     expect(fruit.position).toEqual({ x: 3, y: 1 });
     expect(rock.position).toEqual({ x: 2, y: 1 });
-    expect(baba.position).toEqual({ x: 2, y: 1 });
+    expect(sheep.position).toEqual({ x: 2, y: 1 });
   });
 
   test("STICKY chain follows like a snake", () => {
-    // Rocks in a row behind baba: when baba moves right, each rock steps into
-    // the cell the segment ahead vacated (O3→O2→O1→baba's start).
+    // Rocks in a row behind sheep: when sheep moves right, each rock steps into
+    // the cell the segment ahead vacated (O3→O2→O1→sheep's start).
     const world = loadDocument({
       id: "sticky-snake",
       name: "sticky-snake",
       width: 8,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "rock", verb: "is", object: "sticky" },
       ],
       areas: [],
       areaMap: Array.from({ length: 24 }, () => 0),
       background: Array.from({ length: 24 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 3, y: 1 },
+        { kind: "object", id: "sheep", x: 3, y: 1 },
         { kind: "object", id: "rock", x: 2, y: 1 },
         { kind: "object", id: "rock", x: 1, y: 1 },
         { kind: "object", id: "rock", x: 0, y: 1 },
@@ -489,8 +489,8 @@ baba!,rock!,,,,
     });
     const session = new GameSession(world);
     session.dispatch({ type: "move", direction: "right" });
-    const baba = session.world.entitiesWithProperty("you")[0]!;
-    expect(baba.position).toEqual({ x: 4, y: 1 });
+    const sheep = session.world.entitiesWithProperty("you")[0]!;
+    expect(sheep.position).toEqual({ x: 4, y: 1 });
     const rocks = session.world.entities
       .filter((e) => e.noun === asNounId("rock"))
       .map((e) => e.position)
@@ -509,7 +509,7 @@ baba!,rock!,,,,
       width: 8,
       height: 4,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "you" },
         { subject: "wall", verb: "is", object: "stop" },
         {
           subject: "rock",
@@ -522,12 +522,12 @@ baba!,rock!,,,,
       areaMap: Array.from({ length: 32 }, () => 0),
       background: Array.from({ length: 32 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 2, y: 1 },
+        { kind: "object", id: "sheep", x: 2, y: 1 },
         { kind: "object", id: "rock", x: 1, y: 1 },
       ],
     });
     const session = new GameSession(world);
-    // Baba up to (2,0); rock follows into (2,1) facing right; slide coasts to (3,1).
+    // Sheep up to (2,0); rock follows into (2,1) facing right; slide coasts to (3,1).
     session.dispatch({ type: "move", direction: "up" });
     const rock = session.world.entities.filter((e) => e.noun === asNounId("rock"))[0]!;
     expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 2, y: 0 });
@@ -544,15 +544,15 @@ baba!,rock!,,,,
       width: 5,
       height: 3,
       globalRules: [
-        { subject: "baba", verb: "is", object: "you" },
-        { subject: "baba", verb: "is", object: "confused" },
+        { subject: "sheep", verb: "is", object: "you" },
+        { subject: "sheep", verb: "is", object: "confused" },
         { subject: "wall", verb: "is", object: "stop" },
       ],
       areas: [],
       areaMap: Array.from({ length: 15 }, () => 0),
       background: Array.from({ length: 15 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 2, y: 1 },
+        { kind: "object", id: "sheep", x: 2, y: 1 },
         { kind: "object", id: "wall", x: 0, y: 1 },
         { kind: "object", id: "wall", x: 4, y: 1 },
       ],
@@ -570,17 +570,17 @@ baba!,rock!,,,,
       height: 3,
       globalRules: [
         {
-          subject: "baba",
+          subject: "sheep",
           verb: "is",
           object: "you",
-          words: ["baba", "and", "rock", "is", "you"],
+          words: ["sheep", "and", "rock", "is", "you"],
         },
       ],
       areas: [],
       areaMap: Array.from({ length: 12 }, () => 0),
       background: Array.from({ length: 12 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "sheep", x: 1, y: 1 },
         { kind: "object", id: "rock", x: 2, y: 1 },
       ],
     });

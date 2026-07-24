@@ -2,11 +2,11 @@
  * Compact level format.
  *
  * Rows of comma-separated cells. Tokens:
- * - `baba!`  → object of noun baba
- * - `baba`   → text word "baba"
+ * - `sheep!`  → object of noun sheep
+ * - `sheep`   → text word "sheep"
  * - `is`     → text word "is"
  * - empty    → empty cell
- * - multiple tokens in one cell separated by spaces: `baba! flag`
+ * - multiple tokens in one cell separated by spaces: `sheep! flag`
  *
  * This keeps levels readable in source control and easy to author by hand.
  */

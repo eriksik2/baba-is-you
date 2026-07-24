@@ -1,16 +1,16 @@
 import type { LevelDefinition } from "./format";
 
 /** Legacy CSV intro — still uses the slim lexicon + exit via rock walk (no flag). */
-export const LEVEL_0_BABA_IS_YOU: LevelDefinition = {
+export const LEVEL_0_SHEEP_IS_YOU: LevelDefinition = {
   id: "level-0",
-  name: "Baba Is You",
+  name: "Sheep Is You",
   layout: `
 ,,,,,,,,,
-,baba,is,you,,,,,,,
+,sheep,is,you,,,,,,,
 ,,,,,,,,,
 ,wall!,wall!,wall!,wall!,wall!,,,,
 ,wall!,,,,wall!,,,,
-,wall!,,wall,baba!,wall!,,,,
+,wall!,,wall,sheep!,wall!,,,,
 ,wall!,,is,,wall!,,,,
 ,wall!,,stop,,wall!,,,,
 ,wall!,wall!,wall!,wall!,wall!,,,,
@@ -23,12 +23,12 @@ export const LEVEL_TINY_SMOKE: LevelDefinition = {
   id: "tiny-smoke",
   name: "Smoke Test",
   layout: `
-baba,is,you,wall,is,stop
-baba!,,,,,,
+sheep,is,you,wall,is,stop
+sheep!,,,,,,
 `,
 };
 
 export const BUILTIN_LEVELS: LevelDefinition[] = [
-  LEVEL_0_BABA_IS_YOU,
+  LEVEL_0_SHEEP_IS_YOU,
   LEVEL_TINY_SMOKE,
 ];

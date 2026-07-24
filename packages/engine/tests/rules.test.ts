@@ -20,14 +20,14 @@ function tiles(...cells: string[][]) {
 describe("rules parser", () => {
   const lexicon = createDefaultLexicon();
 
-  test("parses horizontal BABA IS YOU", () => {
+  test("parses horizontal SHEEP IS YOU", () => {
     const rules = parseRules({
       lexicon,
       width: 5,
       height: 1,
-      texts: tiles(["baba", "is", "you"]),
+      texts: tiles(["sheep", "is", "you"]),
     });
-    expect(rules.propertiesByNoun.get(asNounId("baba"))?.has(asPropertyId("you"))).toBe(true);
+    expect(rules.propertiesByNoun.get(asNounId("sheep"))?.has(asPropertyId("you"))).toBe(true);
   });
 
   test("parses vertical ROCK IS PUSH", () => {
@@ -55,19 +55,19 @@ describe("rules parser", () => {
       lexicon,
       width: 3,
       height: 1,
-      texts: tiles(["baba", "is", "you"]),
+      texts: tiles(["sheep", "is", "you"]),
     });
     expect(rules.features.some((f) => f.key === "text is push")).toBe(true);
   });
 
-  test("parses noun transform BABA IS ROCK", () => {
+  test("parses noun transform SHEEP IS ROCK", () => {
     const rules = parseRules({
       lexicon,
       width: 5,
       height: 1,
-      texts: tiles(["baba", "is", "rock"]),
+      texts: tiles(["sheep", "is", "rock"]),
     });
-    expect(rules.transformsByNoun.get(asNounId("baba"))).toBe(asNounId("rock"));
+    expect(rules.transformsByNoun.get(asNounId("sheep"))).toBe(asNounId("rock"));
   });
 
   test("ignores incomplete sentences", () => {
@@ -75,9 +75,9 @@ describe("rules parser", () => {
       lexicon,
       width: 3,
       height: 1,
-      texts: tiles(["baba", "is", ""]),
+      texts: tiles(["sheep", "is", ""]),
     });
-    expect(rules.propertiesByNoun.get(asNounId("baba"))?.has(asPropertyId("you")) ?? false).toBe(
+    expect(rules.propertiesByNoun.get(asNounId("sheep"))?.has(asPropertyId("you")) ?? false).toBe(
       false,
     );
   });
@@ -87,10 +87,10 @@ describe("rules parser", () => {
       lexicon,
       width: 8,
       height: 1,
-      texts: tiles(["baba", "and", "rock", "is", "you", "and", "push"]),
+      texts: tiles(["sheep", "and", "rock", "is", "you", "and", "push"]),
     });
-    expect(rules.propertiesByNoun.get(asNounId("baba"))?.has(asPropertyId("you"))).toBe(true);
-    expect(rules.propertiesByNoun.get(asNounId("baba"))?.has(asPropertyId("push"))).toBe(true);
+    expect(rules.propertiesByNoun.get(asNounId("sheep"))?.has(asPropertyId("you"))).toBe(true);
+    expect(rules.propertiesByNoun.get(asNounId("sheep"))?.has(asPropertyId("push"))).toBe(true);
     expect(rules.propertiesByNoun.get(asNounId("rock"))?.has(asPropertyId("you"))).toBe(true);
     expect(rules.propertiesByNoun.get(asNounId("rock"))?.has(asPropertyId("push"))).toBe(true);
   });
