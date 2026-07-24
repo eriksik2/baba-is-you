@@ -10,6 +10,7 @@ import type { EntityRecord } from "../entity/store";
 import type { Direction, PropertyId } from "../types";
 import { asPropertyId } from "../types";
 import type { World } from "../world/world";
+import { destroyWithEffects } from "../systems/destroy";
 
 export interface PropertyContext {
   world: World;
@@ -70,6 +71,15 @@ export function createDefaultProperties(): PropertyRegistry {
   reg.register({ id: asPropertyId("slide") });
   reg.register({ id: asPropertyId("sticky") });
   reg.register({ id: asPropertyId("win") });
+  reg.register({ id: asPropertyId("boom") });
+
+  reg.register({
+    id: asPropertyId("fragile"),
+    onAfterEnter: (_mover, target, ctx) => {
+      // Another object moved onto this fragile tile.
+      if (target.alive) destroyWithEffects(ctx.world, target.id);
+    },
+  });
 
   return reg;
 }

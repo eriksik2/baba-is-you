@@ -8,6 +8,8 @@ import {
   LEVEL_4,
   LEVEL_SPECIAL,
   LEVEL_JUNGLE_1,
+  LEVEL_JUNGLE_3,
+  LEVEL_JUNGLE_4,
   OVERWORLD,
   CAMPAIGN_LEVELS,
   asNounId,
@@ -25,7 +27,7 @@ function textsOnWallObjects(doc: {
 }
 
 describe("campaign levels", () => {
-  test("campaign has overworld + 4 levels + special + jungle", () => {
+  test("campaign has overworld + 4 levels + special + jungle + dev", () => {
     const ids = CAMPAIGN_LEVELS.map((l) => l.id);
     expect(ids).toEqual([
       "overworld",
@@ -36,6 +38,9 @@ describe("campaign levels", () => {
       "level-special",
       "level-jungle-1",
       "level-jungle-2",
+      "level-jungle-3",
+      "level-jungle-4",
+      "level-jungle-5",
       "dev-world",
     ]);
   });
@@ -50,10 +55,14 @@ describe("campaign levels", () => {
       "IV",
       "J1",
       "J2",
+      "J3",
+      "J4",
+      "J5",
     ]);
     expect(portals.find((p) => p.special)?.requires).toBe("level-2");
     expect(portals.find((p) => p.label === "J1")?.requires).toBe("level-4");
     expect(portals.find((p) => p.label === "J2")?.requires).toBe("level-jungle-1");
+    expect(portals.find((p) => p.label === "J3")?.requires).toBe("level-jungle-2");
   });
 
   test("overworld loads as 32×16 pastoral map with follow camera", () => {
@@ -172,6 +181,30 @@ describe("campaign levels", () => {
     expect(objs.some((e) => e.noun === asNounId("door"))).toBe(true);
     const features = world.activeFeaturesForDisplay();
     expect(features.some((k) => k.includes("fruit on door is win"))).toBe(true);
+  });
+
+  test("jungle-3 fuse blasts tree with TNT boom", () => {
+    const session = new GameSession(loadDocument(LEVEL_JUNGLE_3));
+    for (const c of "rrrrrruuu") {
+      session.dispatch({
+        type: "move",
+        direction: ({ u: "up", d: "down", l: "left", r: "right" } as const)[c]!,
+      });
+      if (session.world.status === "won") break;
+    }
+    expect(session.world.status).toBe("won");
+  });
+
+  test("jungle-4 soft fruit wins on door stack", () => {
+    const session = new GameSession(loadDocument(LEVEL_JUNGLE_4));
+    for (const c of "rrrrrrr") {
+      session.dispatch({
+        type: "move",
+        direction: ({ u: "up", d: "down", l: "left", r: "right" } as const)[c]!,
+      });
+      if (session.world.status === "won") break;
+    }
+    expect(session.world.status).toBe("won");
   });
 
   test("level-2, level-4, and special have no text on wall cells", () => {

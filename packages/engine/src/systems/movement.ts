@@ -13,6 +13,7 @@ import type { PropertyRegistry } from "../properties";
 import type { Direction, Vec2 } from "../types";
 import { DIRECTION_DELTA, OPPOSITE_DIRECTION, addVec } from "../types";
 import type { World } from "../world/world";
+import { destroyWithEffects } from "./destroy";
 
 export interface MoveResult {
   moved: boolean;
@@ -20,6 +21,8 @@ export interface MoveResult {
   movers: EntityRecord[];
   /** Cells left by movers this attempt (in move order). */
   vacated: Vec2[];
+  /** True if anything was destroyed (fragile/boom) even without a successful step. */
+  changed?: boolean;
 }
 
 /** Vacancy left by something traveling `dir` — sticky snake seed. */
@@ -81,6 +84,7 @@ export function tryMove(
 /**
  * Move entity into an absolute cell (cardinal or diagonal).
  * Push chains use `pushDir` (toward the destination).
+ * FRAGILE: shatter when blocked by / blocking another object, or when stepped on.
  */
 export function tryEnterCell(
   world: World,
@@ -103,9 +107,11 @@ export function tryEnterCell(
     if (blocksEntry(world, occ)) {
       const handler = properties.get("stop");
       if (handler?.onBeforeEnter && !handler.onBeforeEnter(entity, occ, ctx)) {
-        return { moved: false, movers: [], vacated: [] };
+        const shattered = shatterFragileContact(world, entity, occ);
+        return { moved: false, movers: [], vacated: [], changed: shattered };
       }
-      return { moved: false, movers: [], vacated: [] };
+      const shattered = shatterFragileContact(world, entity, occ);
+      return { moved: false, movers: [], vacated: [], changed: shattered };
     }
   }
 
@@ -116,11 +122,18 @@ export function tryEnterCell(
   for (const p of pushables) {
     const res = tryMove(world, properties, p, pushDir, visiting);
     if (!res.moved) {
-      return { moved: false, movers: [], vacated: [] };
+      let changed = !!res.changed;
+      if (entity.alive && world.hasProperty(entity, "fragile")) {
+        destroyWithEffects(world, entity.id);
+        changed = true;
+      }
+      return { moved: false, movers: [], vacated: [], changed };
     }
     pushed.push(...res.movers);
     vacated.push(...res.vacated);
   }
+
+  if (!entity.alive) return { moved: false, movers: [], vacated: [], changed: true };
 
   const afterPushOccupants = world.grid.entitiesAt(dest, world.entities);
   for (const occ of afterPushOccupants) {
@@ -128,7 +141,8 @@ export function tryEnterCell(
     for (const handler of properties.all()) {
       if (!world.hasProperty(occ, handler.id)) continue;
       if (handler.onBeforeEnter && !handler.onBeforeEnter(entity, occ, ctx)) {
-        return { moved: false, movers: [], vacated: [] };
+        const shattered = shatterFragileContact(world, entity, occ);
+        return { moved: false, movers: [], vacated: [], changed: shattered };
       }
     }
   }
@@ -140,15 +154,35 @@ export function tryEnterCell(
   const movers = [...pushed, entity];
 
   const landedWith = world.grid.entitiesAt(dest, world.entities);
-  for (const occ of landedWith) {
-    if (occ.id === entity.id) continue;
+  let changed = false;
+  for (const occ of [...landedWith]) {
+    if (!occ.alive || occ.id === entity.id) continue;
     for (const handler of properties.all()) {
       if (!world.hasProperty(occ, handler.id)) continue;
       handler.onAfterEnter?.(entity, occ, ctx);
     }
+    if (!occ.alive) changed = true;
   }
 
-  return { moved: true, movers, vacated };
+  return {
+    moved: entity.alive,
+    movers: movers.filter((m) => m.alive),
+    vacated,
+    changed: changed || !entity.alive,
+  };
+}
+
+function shatterFragileContact(world: World, mover: EntityRecord, blocker: EntityRecord): boolean {
+  let changed = false;
+  if (mover.alive && world.hasProperty(mover, "fragile")) {
+    destroyWithEffects(world, mover.id);
+    changed = true;
+  }
+  if (blocker.alive && world.hasProperty(blocker, "fragile")) {
+    destroyWithEffects(world, blocker.id);
+    changed = true;
+  }
+  return changed;
 }
 
 /**
@@ -305,12 +339,14 @@ export function moveAllYou(
   const allMovers: EntityRecord[] = [];
   const allVacated: Vec2[] = [];
   let any = false;
+  let changed = false;
   const stickyMoved = new Set<number>();
 
   for (const y of yous) {
     if (!world.entities.get(y.id)?.alive) continue;
     const from = { ...y.position };
     const res = tryMove(world, properties, y, direction);
+    if (res.changed) changed = true;
     if (res.moved) {
       any = true;
       allMovers.push(...res.movers);
@@ -331,7 +367,7 @@ export function moveAllYou(
       allVacated.push(...sticky.vacated);
     }
   }
-  return { moved: any, movers: allMovers, vacated: allVacated };
+  return { moved: any, movers: allMovers, vacated: allVacated, changed: changed || any };
 }
 
 /**

@@ -252,7 +252,7 @@ baba!,rock!,,,,
     expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 5, y: 1 });
   });
 
-  test("FRUIT ON DOOR IS WIN when stacked", () => {
+  test("FRUIT ON DOOR IS WIN triggers when condition is met", () => {
     const world = loadDocument({
       id: "on-win",
       name: "on",
@@ -276,8 +276,66 @@ baba!,rock!,,,,
     const session = new GameSession(world);
     const fruit = session.world.entities.filter((e) => e.noun === asNounId("fruit"))[0]!;
     expect(session.world.hasProperty(fruit, "win")).toBe(true);
-    session.dispatch({ type: "move", direction: "right" });
+    // Condition alone triggers win — YOU need not overlap the stack.
+    session.dispatch({ type: "wait" });
     expect(session.world.status).toBe("won");
+  });
+
+  test("FRAGILE shatters when walked onto or when it blocks", () => {
+    const world = loadDocument({
+      id: "fragile-test",
+      name: "fragile",
+      width: 6,
+      height: 3,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "fruit", verb: "is", object: "fragile" },
+        { subject: "wall", verb: "is", object: "stop" },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 18 }, () => 0),
+      background: Array.from({ length: 18 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "fruit", x: 2, y: 1 },
+        { kind: "object", id: "wall", x: 0, y: 1 },
+        { kind: "object", id: "wall", x: 5, y: 1 },
+      ],
+    });
+    const session = new GameSession(world);
+    session.dispatch({ type: "move", direction: "right" });
+    expect(session.world.entities.filter((e) => e.noun === asNounId("fruit")).length).toBe(0);
+  });
+
+  test("BOOM destroys neighbors when fragile TNT shatters", () => {
+    const world = loadDocument({
+      id: "boom-test",
+      name: "boom",
+      width: 5,
+      height: 3,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        {
+          subject: "tnt",
+          verb: "is",
+          object: "boom",
+          words: ["tnt", "is", "boom", "and", "fragile"],
+        },
+        { subject: "tree", verb: "is", object: "stop" },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 15 }, () => 0),
+      background: Array.from({ length: 15 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "tnt", x: 2, y: 1 },
+        { kind: "object", id: "tree", x: 3, y: 1 },
+      ],
+    });
+    const session = new GameSession(world);
+    session.dispatch({ type: "move", direction: "right" });
+    expect(session.world.entities.filter((e) => e.noun === asNounId("tnt")).length).toBe(0);
+    expect(session.world.entities.filter((e) => e.noun === asNounId("tree")).length).toBe(0);
   });
 
   test("WORD refers to text tiles", () => {

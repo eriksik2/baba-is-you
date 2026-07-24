@@ -1,13 +1,16 @@
 /**
- * Turn pipeline — the single place that advances simulation time.
+ * Turn pipeline — advances simulation one discrete step.
  *
- * Phase order (aligned with real Baba Is You):
- * 1. Snapshot (for undo) — done by GameSession
- * 2. Apply player intent (move YOU)
+ * Real-time play is handled by the client: it fires move/tick intents on a
+ * clock while keys are held. Each intent still runs this discrete pipeline.
+ *
+ * Phase order:
+ * 1. Apply player intent (move YOU) — skipped on tick/wait
+ * 2. SLIDE one tile
  * 3. Rebuild rules if board/text changed
  * 4. Apply transforms (noun IS noun)
  * 5. Rebuild rules again if transforms occurred
- * 6. Resolve overlaps / status (win, defeat, melt, …)
+ * 6. Resolve overlaps / status (win, defeat, …)
  */
 
 import type { Direction, GameStatus } from "../types";
@@ -23,6 +26,7 @@ import { EventBus, type GameEventMap } from "../events/bus";
 export type PlayerIntent =
   | { type: "move"; direction: Direction }
   | { type: "wait" }
+  | { type: "tick" }
   | { type: "undo" }
   | { type: "restart" };
 
@@ -36,12 +40,15 @@ export interface TurnContext {
   properties: PropertyRegistry;
   intent: PlayerIntent;
   rulesDirty: boolean;
+  /** True if any entity changed cells or was destroyed this step. */
+  worldChanged: boolean;
 }
 
 export interface TurnResult {
   status: GameStatus;
   rulesChanged: boolean;
   didMove: boolean;
+  worldChanged: boolean;
 }
 
 export class TurnPipeline {
@@ -56,6 +63,7 @@ export class TurnPipeline {
       properties: this.properties,
       intent,
       rulesDirty: false,
+      worldChanged: false,
     };
 
     const genBefore = world.rulesGeneration;
@@ -67,7 +75,8 @@ export class TurnPipeline {
     return {
       status: world.status,
       rulesChanged: world.rulesGeneration !== genBefore,
-      didMove: intent.type === "move",
+      didMove: ctx.worldChanged && intent.type === "move",
+      worldChanged: ctx.worldChanged || world.rulesGeneration !== genBefore,
     };
   }
 }
@@ -78,15 +87,18 @@ export const moveYouPhase: TurnPhase = {
     if (ctx.intent.type !== "move") return;
     if (ctx.world.status !== "playing") return;
     const res = moveAllYou(ctx.world, ctx.properties, ctx.intent.direction);
-    if (res.moved) ctx.rulesDirty = true;
+    if (res.moved || res.changed) {
+      ctx.rulesDirty = true;
+      ctx.worldChanged = true;
+    }
   },
 };
 
 export const waitPhase: TurnPhase = {
   name: "wait",
   run(ctx) {
-    // WAIT still advances turn-based properties (SLIDE, later MOVE patrol).
-    if (ctx.intent.type === "wait") {
+    // WAIT / TICK: no YOU step; SLIDE still advances below.
+    if (ctx.intent.type === "wait" || ctx.intent.type === "tick") {
       ctx.rulesDirty = true;
     }
   },
@@ -96,9 +108,18 @@ export const slidePhase: TurnPhase = {
   name: "slide",
   run(ctx) {
     if (ctx.world.status !== "playing") return;
-    if (ctx.intent.type !== "move" && ctx.intent.type !== "wait") return;
+    if (
+      ctx.intent.type !== "move" &&
+      ctx.intent.type !== "wait" &&
+      ctx.intent.type !== "tick"
+    ) {
+      return;
+    }
     const res = applySlide(ctx.world, ctx.properties);
-    if (res.moved) ctx.rulesDirty = true;
+    if (res.moved) {
+      ctx.rulesDirty = true;
+      ctx.worldChanged = true;
+    }
   },
 };
 
@@ -118,6 +139,7 @@ export const transformPhase: TurnPhase = {
     if (ctx.world.status !== "playing") return;
     if (applyTransforms(ctx.world)) {
       ctx.rulesDirty = true;
+      ctx.worldChanged = true;
     }
   },
 };
@@ -184,6 +206,7 @@ export class GameSession {
         status: this.world.status,
         rulesChanged: true,
         didMove: false,
+        worldChanged: true,
       };
       this.events.emit("after-turn", result);
       return result;
@@ -197,6 +220,7 @@ export class GameSession {
         status: this.world.status,
         rulesChanged: true,
         didMove: false,
+        worldChanged: true,
       };
       this.events.emit("after-turn", result);
       return result;
@@ -207,11 +231,17 @@ export class GameSession {
         status: this.world.status,
         rulesChanged: false,
         didMove: false,
+        worldChanged: false,
       };
     }
 
-    this.history.push(this.world.clone());
+    const snapshot = this.world.clone();
+    const statusBefore = this.world.status;
     const result = this.pipeline.run(this.world, intent);
+
+    if (result.worldChanged || this.world.status !== statusBefore) {
+      this.history.push(snapshot);
+    }
 
     if (result.rulesChanged) {
       this.events.emit("rules-changed", {

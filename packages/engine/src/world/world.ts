@@ -207,6 +207,11 @@ export class World {
     return [...this.globalRules.features, ...local.features];
   }
 
+  /** Public: features visible in an area (global ∪ local). */
+  featuresForAreaPublic(areaId: number): Feature[] {
+    return this.featuresForArea(areaId);
+  }
+
   private conditionsMet(e: EntityRecord, feature: Feature): boolean {
     for (const c of feature.conditions) {
       if (c.kind === "on") {
@@ -221,6 +226,11 @@ export class World {
       }
     }
     return true;
+  }
+
+  /** Public: whether an entity satisfies a feature's ON conditions. */
+  conditionsMetPublic(e: EntityRecord, feature: Feature): boolean {
+    return this.conditionsMet(e, feature);
   }
 
   /** Property query: global ∪ area rules, with ON conditions + WORD alias. */
