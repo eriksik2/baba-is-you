@@ -11,6 +11,7 @@ const PALETTE: Record<string, string> = {
   tree: "#3d6b3a",
   fruit: "#e06050",
   door: "#8b5a2b",
+  tnt: "#c43c2b",
   text: "#ffffff",
   "text-noun": "#3db4ff",
   "text-property": "#ff5aad",
@@ -529,10 +530,28 @@ export class CanvasRenderer {
       ctx.strokeStyle = "rgba(20, 12, 8, 0.7)";
       ctx.lineWidth = strokeW;
       ctx.stroke();
-      ctx.fillStyle = "#e8c86a";
       ctx.beginPath();
-      ctx.arc(x + cs * 0.68, y + cs * 0.52, Math.max(1.5, cs * 0.05), 0, Math.PI * 2);
+      ctx.arc(x + cs * 0.68, y + cs * 0.52, cs * 0.05, 0, Math.PI * 2);
+      ctx.fillStyle = "#e8c86a";
       ctx.fill();
+    } else if (e.noun === "tnt") {
+      roundRect(ctx, x + inset + 1, y + inset + 2, cs - inset * 2 - 2, cs - inset * 2 - 4, Math.max(2, cs * 0.08));
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(20, 8, 6, 0.75)";
+      ctx.lineWidth = strokeW;
+      ctx.stroke();
+      ctx.fillStyle = "#1a1a1a";
+      ctx.font = `bold ${Math.max(8, cs * 0.28)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("TNT", x + cs / 2, y + cs / 2 + cs * 0.02);
+      ctx.beginPath();
+      ctx.moveTo(x + cs * 0.55, y + inset);
+      ctx.quadraticCurveTo(x + cs * 0.72, y + cs * 0.08, x + cs * 0.62, y + cs * 0.2);
+      ctx.strokeStyle = "#f0d060";
+      ctx.lineWidth = Math.max(1.5, cs * 0.04);
+      ctx.stroke();
     } else {
       roundRect(ctx, x + inset + 1, y + inset + 1, cs - inset * 2 - 2, cs - inset * 2 - 2, Math.max(4, cs * 0.16));
       ctx.fillStyle = color;

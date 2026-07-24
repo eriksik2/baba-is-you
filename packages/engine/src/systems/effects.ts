@@ -1,5 +1,6 @@
 import type { World } from "../world/world";
 import type { PropertyRegistry } from "../properties";
+import { asOperatorId } from "../types";
 
 /**
  * Apply noun→noun transforms (BABA IS ROCK), including conditional features.
@@ -18,7 +19,15 @@ export function applyTransforms(world: World): boolean {
 }
 
 /**
- * End-of-turn status: property hooks, YOU+WIN, exit portals, lose if nothing is YOU.
+ * Properties that fire a global trigger when a *conditional* rule grants them
+ * (e.g. FRUIT ON DOOR IS WIN → win as soon as fruit sits on door).
+ * Unconditional / status properties like PUSH still only apply via hasProperty.
+ */
+const CONDITIONAL_TRIGGERS = new Set(["win"]);
+
+/**
+ * End-of-turn / end-of-step status: property hooks, conditional triggers,
+ * YOU+WIN, exit portals, lose if nothing is YOU.
  */
 export function resolveOverlaps(world: World, properties: PropertyRegistry): void {
   const ctx = { world };
@@ -27,6 +36,28 @@ export function resolveOverlaps(world: World, properties: PropertyRegistry): voi
     for (const handler of properties.all()) {
       if (world.hasProperty(e, handler.id)) {
         handler.onResolve?.(e, ctx);
+      }
+    }
+  }
+
+  if (world.status === "playing") {
+    // Conditional trigger properties: condition satisfied ⇒ fire (no YOU overlap needed).
+    outer: for (const e of [...world.entities.values()]) {
+      if (!e.alive) continue;
+      const area = world.areaAt(e.position);
+      for (const f of world.featuresForAreaPublic(area)) {
+        if (f.subject.negated) continue;
+        if (f.verb !== asOperatorId("is")) continue;
+        if (f.target.kind !== "property" || f.target.negated) continue;
+        if (f.conditions.length === 0) continue;
+        const prop = String(f.target.property);
+        if (!CONDITIONAL_TRIGGERS.has(prop)) continue;
+        if (!world.nounsForEntity(e).includes(f.subject.noun)) continue;
+        if (!world.conditionsMetPublic(e, f)) continue;
+        if (prop === "win") {
+          world.status = "won";
+          break outer;
+        }
       }
     }
   }
@@ -56,4 +87,6 @@ export function resolveOverlaps(world: World, properties: PropertyRegistry): voi
       world.status = "lost";
     }
   }
+
+  void properties;
 }

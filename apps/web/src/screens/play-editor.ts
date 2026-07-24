@@ -35,6 +35,7 @@ import {
   mountRuleSentenceEditor,
 } from "../ui/rule-sentence";
 const LERP_MS = 110;
+const STEP_MS = 120;
 const FOLLOW = 0.22;
 const ZOOM_MIN = 14;
 const ZOOM_MAX = 96;
@@ -117,6 +118,8 @@ export function mountPlay(api: AppApi): {
   let lerp = new Map<number, LerpState>();
   let raf = 0;
   let lastT = performance.now();
+  let stepAccum = 0;
+  let lastHeldDir: string | null = null;
   let camera: Camera = { x: 0, y: 0, zoom: 48 };
   let youFocus = 0;
   let isDevWorld = false;
@@ -264,9 +267,27 @@ export function mountPlay(api: AppApi): {
     // while session was still null on boot, leaving a permanent black board.
     raf = requestAnimationFrame(drawFrame);
     if (!session) return;
-    const dt = Math.min(0.05, (now - lastT) / 1000);
+    const dtMs = Math.min(50, now - lastT);
     lastT = now;
-    renderer.particles.update(dt);
+
+    // Realtime step clock: held direction → move; otherwise tick (slide etc.).
+    if (session.world.status === "playing") {
+      const dir = controls?.heldDirection() ?? null;
+      if (dir && dir !== lastHeldDir) stepAccum = STEP_MS; // first press steps immediately
+      lastHeldDir = dir;
+      stepAccum += dtMs;
+      while (stepAccum >= STEP_MS) {
+        stepAccum -= STEP_MS;
+        if (dir) dispatch({ type: "move", direction: dir });
+        else dispatch({ type: "tick" });
+        if (!session || session.world.status !== "playing") break;
+      }
+    } else {
+      stepAccum = 0;
+      lastHeldDir = null;
+    }
+
+    renderer.particles.update(dtMs / 1000);
     refreshYouSwitcher();
     updateCamera();
     renderer.draw(session.world, {
@@ -391,6 +412,7 @@ export function mountPlay(api: AppApi): {
     sourceDoc = structuredClone(doc);
     fromEditor = !!opts?.fromEditor;
     isDevWorld = doc.id === "dev-world";
+    stepAccum = 0;
     const world = loadDocument(doc);
     const progress = loadProgress();
     if (doc.isOverworld && progress.overworldPos) {

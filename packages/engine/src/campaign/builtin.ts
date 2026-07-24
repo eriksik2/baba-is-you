@@ -261,6 +261,46 @@ export const OVERWORLD: LevelDocument = {
       requires: "level-jungle-1",
       label: "J2",
     },
+    {
+      id: "pj3",
+      x: 28,
+      y: 11,
+      targetLevelId: "level-jungle-3",
+      requires: "level-jungle-2",
+      label: "J3",
+    },
+    {
+      id: "pj4",
+      x: 25,
+      y: 12,
+      targetLevelId: "level-jungle-4",
+      requires: "level-jungle-3",
+      label: "J4",
+    },
+    {
+      id: "pj5",
+      x: 22,
+      y: 11,
+      targetLevelId: "level-jungle-5",
+      requires: "level-jungle-4",
+      label: "J5",
+    },
+    {
+      id: "pj6",
+      x: 22,
+      y: 6,
+      targetLevelId: "level-jungle-6",
+      requires: "level-jungle-5",
+      label: "J6",
+    },
+    {
+      id: "pj7",
+      x: 25,
+      y: 5,
+      targetLevelId: "level-jungle-7",
+      requires: "level-jungle-6",
+      label: "J7",
+    },
   ],
 };
 
@@ -627,6 +667,244 @@ export const LEVEL_JUNGLE_2: LevelDocument = {
 };
 
 // ---------------------------------------------------------------------------
+// Jungle 3 — Fuse: append AND FRAGILE to TNT IS BOOM, then detonate the seal
+// ---------------------------------------------------------------------------
+
+export const LEVEL_JUNGLE_3: LevelDocument = {
+  id: "level-jungle-3",
+  name: "Fuse",
+  width: 13,
+  height: 9,
+  globalRules: [
+    { subject: "baba", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "tree", verb: "is", object: "stop" },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(13, 9),
+  background: (() => {
+    const bg = fill(13, 9, BG.jungle);
+    stamp(bg, 13, { x: 1, y: 5, w: 10, h: 1 }, BG.dirt);
+    stamp(bg, 13, { x: 10, y: 2, w: 1, h: 4 }, BG.path);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 50 },
+  portals: [exitAt(10, 2)],
+  entities: [
+    ...perimeter(13, 9),
+    // Full fuse already written — walk into TNT to blast the tree seal
+    txt("tnt", 1, 5),
+    txt("is", 2, 5),
+    txt("boom", 3, 5),
+    txt("and", 4, 5),
+    txt("fragile", 5, 5),
+    // Sealed shaft at x=10: walls on both sides
+    ...wallRect(1, 1, 9, 3),
+    ...wallRect(11, 1, 11, 3),
+    ...wallRect(1, 6, 11, 7),
+    obj("tree", 10, 3),
+    obj("tnt", 10, 4),
+    obj("baba", 7, 5),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Jungle 4 — Soft Corner: fragile fruit around an L; ON DOOR wins (don't crush)
+// ---------------------------------------------------------------------------
+
+export const LEVEL_JUNGLE_4: LevelDocument = {
+  id: "level-jungle-4",
+  name: "Soft Corner",
+  width: 12,
+  height: 10,
+  globalRules: [
+    { subject: "baba", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    {
+      subject: "fruit",
+      verb: "is",
+      object: "push",
+      words: ["fruit", "is", "push", "and", "fragile"],
+    },
+    {
+      subject: "fruit",
+      verb: "is",
+      object: "win",
+      words: ["fruit", "on", "door", "is", "win"],
+    },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(12, 10),
+  background: (() => {
+    const bg = fill(12, 10, BG.jungle);
+    stamp(bg, 12, { x: 1, y: 2, w: 9, h: 1 }, BG.path);
+    stamp(bg, 12, { x: 9, y: 1, w: 1, h: 6 }, BG.dirt);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 50 },
+  entities: [
+    ...perimeter(12, 10),
+    // Open (8,1)-(9,1) so you can loop north of the fruit and push it down the shaft
+    ...wallRect(1, 1, 7, 1),
+    ...wallRect(10, 1, 10, 7),
+    ...wallRect(1, 3, 8, 3),
+    ...wallRect(1, 4, 8, 8),
+    obj("door", 9, 6),
+    obj("fruit", 4, 2),
+    obj("baba", 1, 2),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Jungle 5 — Sticky Charge: push armed TNT into a sticky rock jam
+// ---------------------------------------------------------------------------
+
+export const LEVEL_JUNGLE_5: LevelDocument = {
+  id: "level-jungle-5",
+  name: "Sticky Charge",
+  width: 12,
+  height: 9,
+  globalRules: [
+    { subject: "baba", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "stop" },
+    {
+      subject: "rock",
+      verb: "is",
+      object: "sticky",
+      words: ["rock", "is", "sticky"],
+    },
+    {
+      subject: "tnt",
+      verb: "is",
+      object: "push",
+      words: ["tnt", "is", "push", "and", "boom", "and", "fragile"],
+    },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(12, 9),
+  background: (() => {
+    const bg = fill(12, 9, BG.jungle);
+    stamp(bg, 12, { x: 1, y: 5, w: 9, h: 1 }, BG.dirt);
+    stamp(bg, 12, { x: 9, y: 2, w: 1, h: 4 }, BG.path);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 50 },
+  portals: [exitAt(9, 2)],
+  entities: [
+    ...perimeter(12, 9),
+    ...wallRect(1, 1, 8, 3),
+    ...wallRect(10, 1, 10, 3),
+    ...wallRect(1, 6, 10, 7),
+    // Sticky rocks seal the shaft; push TNT into them to boom-clear
+    obj("rock", 9, 3),
+    obj("rock", 9, 4),
+    obj("tnt", 5, 5),
+    obj("baba", 2, 5),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Jungle 6 — Blast Path: push fruit through TNT (boom), then fruit ON door
+// ---------------------------------------------------------------------------
+
+export const LEVEL_JUNGLE_6: LevelDocument = {
+  id: "level-jungle-6",
+  name: "Blast Path",
+  width: 13,
+  height: 9,
+  globalRules: [
+    { subject: "baba", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "tree", verb: "is", object: "stop" },
+    { subject: "fruit", verb: "is", object: "push" },
+    {
+      subject: "tnt",
+      verb: "is",
+      object: "boom",
+      words: ["tnt", "is", "boom", "and", "fragile"],
+    },
+    {
+      subject: "fruit",
+      verb: "is",
+      object: "win",
+      words: ["fruit", "on", "door", "is", "win"],
+    },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(13, 9),
+  background: (() => {
+    const bg = fill(13, 9, BG.jungle);
+    stamp(bg, 13, { x: 1, y: 5, w: 10, h: 1 }, BG.path);
+    stamp(bg, 13, { x: 10, y: 2, w: 1, h: 4 }, BG.dirt);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 50 },
+  entities: [
+    ...perimeter(13, 9),
+    // Sealed shaft: only through x=10; (10,6) open so you can push fruit up into TNT
+    ...wallRect(1, 1, 9, 4),
+    ...wallRect(11, 1, 11, 4),
+    ...wallRect(1, 7, 11, 7),
+    obj("door", 10, 2),
+    obj("tree", 10, 3),
+    obj("tnt", 10, 4),
+    obj("fruit", 4, 5),
+    obj("baba", 2, 5),
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Jungle 7 — Borrowed Fuse: steal FRAGILE from fruit to arm TNT, then ON-win
+// ---------------------------------------------------------------------------
+
+export const LEVEL_JUNGLE_7: LevelDocument = {
+  id: "level-jungle-7",
+  name: "And Fragile",
+  width: 14,
+  height: 9,
+  globalRules: [
+    { subject: "baba", verb: "is", object: "you" },
+    { subject: "wall", verb: "is", object: "stop" },
+    { subject: "tree", verb: "is", object: "stop" },
+    { subject: "fruit", verb: "is", object: "push" },
+    {
+      subject: "fruit",
+      verb: "is",
+      object: "win",
+      words: ["fruit", "on", "door", "is", "win"],
+    },
+  ],
+  areas: [],
+  areaMap: emptyAreaMap(14, 9),
+  background: (() => {
+    const bg = fill(14, 9, BG.jungle);
+    stamp(bg, 14, { x: 1, y: 5, w: 11, h: 1 }, BG.path);
+    stamp(bg, 14, { x: 11, y: 2, w: 1, h: 4 }, BG.dirt);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 48 },
+  entities: [
+    ...perimeter(14, 9),
+    // TNT IS BOOM on the bench; push AND + FRAGILE up to arm the fuse
+    txt("tnt", 1, 4),
+    txt("is", 2, 4),
+    txt("boom", 3, 4),
+    txt("and", 4, 5),
+    txt("fragile", 5, 5),
+    ...wallRect(1, 1, 10, 3),
+    ...wallRect(12, 1, 12, 3),
+    ...wallRect(1, 7, 12, 7),
+    obj("door", 11, 2),
+    obj("tree", 11, 3),
+    obj("tnt", 11, 4),
+    // Fruit waits east of the word work — push onto door after the blast
+    obj("fruit", 8, 5),
+    obj("baba", 2, 6),
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Dev World — sandbox for testing properties & combinations (editable globals)
 // ---------------------------------------------------------------------------
 
@@ -784,6 +1062,11 @@ export const CAMPAIGN_LEVELS: LevelDocument[] = [
   LEVEL_SPECIAL,
   LEVEL_JUNGLE_1,
   LEVEL_JUNGLE_2,
+  LEVEL_JUNGLE_3,
+  LEVEL_JUNGLE_4,
+  LEVEL_JUNGLE_5,
+  LEVEL_JUNGLE_6,
+  LEVEL_JUNGLE_7,
   DEV_WORLD,
 ];
 

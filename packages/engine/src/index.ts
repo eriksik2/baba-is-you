@@ -66,6 +66,7 @@ export {
   stepToward,
   applyTransforms,
   resolveOverlaps,
+  destroyWithEffects,
   STICKY_OFFSETS,
 } from "./systems";
 export type { MoveResult, StickyVacancy } from "./systems";
@@ -107,6 +108,11 @@ export {
   LEVEL_SPECIAL,
   LEVEL_JUNGLE_1,
   LEVEL_JUNGLE_2,
+  LEVEL_JUNGLE_3,
+  LEVEL_JUNGLE_4,
+  LEVEL_JUNGLE_5,
+  LEVEL_JUNGLE_6,
+  LEVEL_JUNGLE_7,
   DEV_WORLD,
   CAMPAIGN_LEVELS,
   INITIAL_UNLOCKS,

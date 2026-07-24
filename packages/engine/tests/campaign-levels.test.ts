@@ -8,6 +8,11 @@ import {
   LEVEL_4,
   LEVEL_SPECIAL,
   LEVEL_JUNGLE_1,
+  LEVEL_JUNGLE_3,
+  LEVEL_JUNGLE_4,
+  LEVEL_JUNGLE_5,
+  LEVEL_JUNGLE_6,
+  LEVEL_JUNGLE_7,
   OVERWORLD,
   CAMPAIGN_LEVELS,
   asNounId,
@@ -24,8 +29,18 @@ function textsOnWallObjects(doc: {
   return doc.entities.filter((e) => e.kind === "text" && walls.has(`${e.x},${e.y}`));
 }
 
+function play(session: GameSession, path: string) {
+  for (const c of path) {
+    session.dispatch({
+      type: "move",
+      direction: ({ u: "up", d: "down", l: "left", r: "right" } as const)[c]!,
+    });
+    if (session.world.status === "won") break;
+  }
+}
+
 describe("campaign levels", () => {
-  test("campaign has overworld + 4 levels + special + jungle", () => {
+  test("campaign has overworld + 4 levels + special + jungle + dev", () => {
     const ids = CAMPAIGN_LEVELS.map((l) => l.id);
     expect(ids).toEqual([
       "overworld",
@@ -36,6 +51,11 @@ describe("campaign levels", () => {
       "level-special",
       "level-jungle-1",
       "level-jungle-2",
+      "level-jungle-3",
+      "level-jungle-4",
+      "level-jungle-5",
+      "level-jungle-6",
+      "level-jungle-7",
       "dev-world",
     ]);
   });
@@ -50,10 +70,18 @@ describe("campaign levels", () => {
       "IV",
       "J1",
       "J2",
+      "J3",
+      "J4",
+      "J5",
+      "J6",
+      "J7",
     ]);
     expect(portals.find((p) => p.special)?.requires).toBe("level-2");
     expect(portals.find((p) => p.label === "J1")?.requires).toBe("level-4");
     expect(portals.find((p) => p.label === "J2")?.requires).toBe("level-jungle-1");
+    expect(portals.find((p) => p.label === "J3")?.requires).toBe("level-jungle-2");
+    expect(portals.find((p) => p.label === "J6")?.requires).toBe("level-jungle-5");
+    expect(portals.find((p) => p.label === "J7")?.requires).toBe("level-jungle-6");
   });
 
   test("overworld loads as 32×16 pastoral map with follow camera", () => {
@@ -165,13 +193,44 @@ describe("campaign levels", () => {
     expect(session.world.status).toBe("won");
   });
 
-  test("jungle-1 loads with fruit, door, and ON win sentence", () => {
+  test("jungle-1 loads with fruit, door, and ON win (not door is win)", () => {
     const world = loadDocument(LEVEL_JUNGLE_1);
     const objs = [...world.entities.values()].filter((e) => e.kind === "object");
     expect(objs.some((e) => e.noun === asNounId("fruit"))).toBe(true);
     expect(objs.some((e) => e.noun === asNounId("door"))).toBe(true);
     const features = world.activeFeaturesForDisplay();
     expect(features.some((k) => k.includes("fruit on door is win"))).toBe(true);
+    expect(features.some((k) => k === "door is win")).toBe(false);
+  });
+
+  test("jungle-3 fuse blasts tree with TNT boom", () => {
+    const session = new GameSession(loadDocument(LEVEL_JUNGLE_3));
+    play(session, "rrruuu");
+    expect(session.world.status).toBe("won");
+  });
+
+  test("jungle-4 soft corner wins on door stack", () => {
+    const session = new GameSession(loadDocument(LEVEL_JUNGLE_4));
+    play(session, "rrrrrrrurdddd");
+    expect(session.world.status).toBe("won");
+  });
+
+  test("jungle-5 sticky charge clears rocks with boom", () => {
+    const session = new GameSession(loadDocument(LEVEL_JUNGLE_5));
+    play(session, "rrrrrrruuu");
+    expect(session.world.status).toBe("won");
+  });
+
+  test("jungle-6 blast path: fruit through TNT then ON door", () => {
+    const session = new GameSession(loadDocument(LEVEL_JUNGLE_6));
+    play(session, "rrrrrrrdruuu");
+    expect(session.world.status).toBe("won");
+  });
+
+  test("jungle-7 arms AND FRAGILE then wins on door", () => {
+    const session = new GameSession(loadDocument(LEVEL_JUNGLE_7));
+    play(session, "rrudrurrrrrdruuu");
+    expect(session.world.status).toBe("won");
   });
 
   test("level-2, level-4, and special have no text on wall cells", () => {

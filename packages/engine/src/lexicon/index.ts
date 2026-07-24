@@ -85,6 +85,7 @@ export function createDefaultLexicon(): Lexicon {
     ["tree", "Tree", "tree"],
     ["fruit", "Fruit", "fruit"],
     ["door", "Door", "door"],
+    ["tnt", "TNT", "tnt"],
     // Implicit / meta nouns for text tiles
     ["text", "Text", "text"],
     ["word", "Word", "word"],
@@ -113,6 +114,8 @@ export function createDefaultLexicon(): Lexicon {
     ["slide", "SLIDE"],
     ["sticky", "STICKY"],
     ["win", "WIN"],
+    ["boom", "BOOM"],
+    ["fragile", "FRAGILE"],
   ];
 
   for (const [id, label] of properties) {
