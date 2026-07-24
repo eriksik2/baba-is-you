@@ -1,11 +1,11 @@
-import type { CampaignProgress, LevelDocument } from "@baba/engine";
+import type { CampaignProgress, LevelDocument } from "@sheep/engine";
 import {
   CAMPAIGN_LEVELS,
   createInitialProgress,
-} from "@baba/engine";
+} from "@sheep/engine";
 
-const PROGRESS_KEY = "baba.progress.v1";
-const CUSTOM_KEY = "baba.customLevels.v1";
+const PROGRESS_KEY = "sheep.progress.v1";
+const CUSTOM_KEY = "sheep.customLevels.v1";
 
 export function loadProgress(): CampaignProgress {
   try {

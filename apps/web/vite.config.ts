@@ -9,7 +9,7 @@ export default defineConfig({
   base,
   resolve: {
     alias: {
-      "@baba/engine": path.resolve(__dirname, "../../packages/engine/src/index.ts"),
+      "@sheep/engine": path.resolve(__dirname, "../../packages/engine/src/index.ts"),
     },
   },
   server: {

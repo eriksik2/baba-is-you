@@ -4,7 +4,7 @@ import {
   DEV_WORLD,
   OVERWORLD,
   type LevelDocument,
-} from "@baba/engine";
+} from "@sheep/engine";
 import { atlas, CREDITS } from "./render/atlas";
 import { mountEditor, mountPlay, type AppApi } from "./screens/play-editor";
 import { findLevel, loadCustomLevels, loadProgress } from "./storage/save";

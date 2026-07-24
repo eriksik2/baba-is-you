@@ -1,12 +1,12 @@
 {
-  "name": "baba",
+  "name": "sheep-is-you",
   "private": true,
   "version": "0.1.0",
-  "description": "A Baba Is You–inspired puzzle engine with a flexible, data-driven rules system",
+  "description": "A Sheep Is You–inspired puzzle engine with a flexible, data-driven rules system",
   "workspaces": ["packages/*", "apps/*"],
   "scripts": {
-    "dev": "bun run --filter @baba/web dev",
-    "build": "bun run --filter @baba/web build",
+    "dev": "bun run --filter @sheep/web dev",
+    "build": "bun run --filter @sheep/web build",
     "test": "bun test packages/engine",
     "test:watch": "bun test --watch packages/engine",
     "typecheck": "bun run --filter '*' typecheck",

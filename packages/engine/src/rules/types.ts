@@ -7,13 +7,13 @@
 
 import type { NounId, OperatorId, PropertyId, WordId } from "../types";
 
-/** A noun reference that may be negated (NOT BABA). */
+/** A noun reference that may be negated (NOT SHEEP). */
 export interface NounRef {
   readonly noun: NounId;
   readonly negated: boolean;
 }
 
-/** Predicate target: property (BABA IS YOU) or noun transform (BABA IS ROCK). */
+/** Predicate target: property (SHEEP IS YOU) or noun transform (SHEEP IS ROCK). */
 export type PredicateTarget =
   | { readonly kind: "property"; readonly property: PropertyId; readonly negated: boolean }
   | { readonly kind: "noun"; readonly noun: NounId; readonly negated: boolean };
@@ -27,7 +27,7 @@ export type RuleCondition = {
 
 /**
  * Atomic rule unit after AND-expansion.
- * Example: BABA AND ROCK IS YOU AND PUSH → four Features.
+ * Example: SHEEP AND ROCK IS YOU AND PUSH → four Features.
  * Example: FRUIT ON DOOR IS WIN → one Feature with an ON condition.
  */
 export interface Feature {

@@ -1,11 +1,12 @@
-import type { AreaDef, EntityRecord, LevelDocument, World } from "@baba/engine";
+import type { AreaDef, EntityRecord, LevelDocument, World } from "@sheep/engine";
 import { atlas, type AssetAtlas, type SheepDir } from "./atlas";
 import { drawAutotile, MASK_E, MASK_N, MASK_S, MASK_W, neighborMask } from "./autotile";
 import { ParticleSystem } from "./particles";
 
 /** High-contrast fills so objects read over ground. */
 const PALETTE: Record<string, string> = {
-  baba: "#fff4e0",
+  sheep: "#fff4e0",
+  wolf: "#5a5a68",
   wall: "#7a8ca4",
   rock: "#e0b078",
   tree: "#3d6b3a",
@@ -488,14 +489,22 @@ export class CanvasRenderer {
       return;
     }
 
-    if (e.noun === "baba") {
+    if (e.noun === "sheep") {
       // Prefer lerp-derived facing while animating; otherwise engine facing.
       const lerpDir = this.facing.get(e.id as unknown as number);
       const engineDir = e.facing as SheepDir | undefined;
       const dir: SheepDir = (moving ? lerpDir : undefined) ?? engineDir ?? lerpDir ?? "down";
       const frame = moving ? Math.floor(t * 8) : 0;
       if (this.assets.sheep) this.assets.drawSheep(ctx, x, y, cs, dir, frame);
-      else this.drawFallbackCreature(ctx, x, y, cs, PALETTE.baba ?? "#fff4e0", eye);
+      else this.drawFallbackCreature(ctx, x, y, cs, PALETTE.sheep ?? "#fff4e0", eye);
+      return;
+    }
+
+    if (e.noun === "wolf") {
+      const lerpDir = this.facing.get(e.id as unknown as number);
+      const engineDir = e.facing as SheepDir | undefined;
+      const dir: SheepDir = (moving ? lerpDir : undefined) ?? engineDir ?? lerpDir ?? "down";
+      this.drawWolf(ctx, x, y, cs, dir, eye, strokeW);
       return;
     }
 
@@ -618,6 +627,83 @@ export class CanvasRenderer {
     ctx.beginPath();
     ctx.arc(x + cs / 2 - cs * 0.12, y + cs / 2 - cs * 0.04, eye, 0, Math.PI * 2);
     ctx.arc(x + cs / 2 + cs * 0.12, y + cs / 2 - cs * 0.04, eye, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private drawWolf(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    cs: number,
+    dir: SheepDir,
+    eye: number,
+    strokeW: number,
+  ): void {
+    const cx = x + cs / 2;
+    const cy = y + cs / 2 + cs * 0.02;
+    const body = PALETTE.wolf ?? "#5a5a68";
+
+    // Shadow
+    ctx.fillStyle = "rgba(12, 10, 16, 0.35)";
+    ctx.beginPath();
+    ctx.ellipse(cx, y + cs * 0.84, cs * 0.3, cs * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + cs * 0.04, cs * 0.34, cs * 0.28, 0, 0, Math.PI * 2);
+    ctx.fillStyle = body;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(10, 8, 14, 0.75)";
+    ctx.lineWidth = strokeW;
+    ctx.stroke();
+
+    // Head offset by facing
+    const hx =
+      dir === "left" ? cx - cs * 0.16 : dir === "right" ? cx + cs * 0.16 : cx;
+    const hy =
+      dir === "up" ? cy - cs * 0.18 : dir === "down" ? cy + cs * 0.1 : cy - cs * 0.08;
+
+    // Ears
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(hx - cs * 0.14, hy - cs * 0.06);
+    ctx.lineTo(hx - cs * 0.08, hy - cs * 0.22);
+    ctx.lineTo(hx - cs * 0.02, hy - cs * 0.06);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(hx + cs * 0.14, hy - cs * 0.06);
+    ctx.lineTo(hx + cs * 0.08, hy - cs * 0.22);
+    ctx.lineTo(hx + cs * 0.02, hy - cs * 0.06);
+    ctx.closePath();
+    ctx.fill();
+
+    // Snout
+    ctx.beginPath();
+    ctx.ellipse(hx, hy, cs * 0.18, cs * 0.16, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#6e6e7a";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(10, 8, 14, 0.7)";
+    ctx.lineWidth = strokeW * 0.85;
+    ctx.stroke();
+
+    // Eyes (amber)
+    ctx.fillStyle = "#e8b44a";
+    ctx.beginPath();
+    ctx.arc(hx - cs * 0.07, hy - cs * 0.02, eye * 0.95, 0, Math.PI * 2);
+    ctx.arc(hx + cs * 0.07, hy - cs * 0.02, eye * 0.95, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1a1010";
+    ctx.beginPath();
+    ctx.arc(hx - cs * 0.07, hy - cs * 0.02, eye * 0.45, 0, Math.PI * 2);
+    ctx.arc(hx + cs * 0.07, hy - cs * 0.02, eye * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Nose
+    ctx.fillStyle = "#1a1218";
+    ctx.beginPath();
+    ctx.ellipse(hx, hy + cs * 0.08, cs * 0.05, cs * 0.035, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 

@@ -12,7 +12,7 @@ describe("rule areas", () => {
   test("local rules only affect entities inside the area", () => {
     const doc: LevelDocument = {
       ...createBlankLevel("area-test", "Area Test", 8, 4),
-      globalRules: [{ subject: "baba", verb: "is", object: "you" }],
+      globalRules: [{ subject: "sheep", verb: "is", object: "you" }],
       areas: [{ id: 1, name: "Yard", color: "rgba(255,0,0,0.2)" }],
       areaMap: [
         0, 0, 0, 0, 0, 0, 0, 0,
@@ -26,7 +26,7 @@ describe("rule areas", () => {
         { kind: "text", id: "stop", x: 3, y: 1 },
         { kind: "object", id: "wall", x: 4, y: 2 },
         { kind: "object", id: "wall", x: 7, y: 2 },
-        { kind: "object", id: "baba", x: 0, y: 2 },
+        { kind: "object", id: "sheep", x: 0, y: 2 },
       ],
     };
 

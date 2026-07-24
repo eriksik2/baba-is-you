@@ -9,7 +9,7 @@ type Brand<T, B extends string> = T & { readonly [brand]: B };
 /** Opaque entity handle. Never reuse within a session without recycling via EntityStore. */
 export type EntityId = Brand<number, "EntityId">;
 
-/** Stable string id for a noun kind (e.g. "baba", "wall", "flag"). */
+/** Stable string id for a noun kind (e.g. "sheep", "wall", "flag"). */
 export type NounId = Brand<string, "NounId">;
 
 /** Stable string id for a property (e.g. "you", "push", "stop"). */
