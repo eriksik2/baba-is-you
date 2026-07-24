@@ -289,14 +289,14 @@ baba!,rock!,,,,
       areaMap: Array.from({ length: 15 }, () => 0),
       background: Array.from({ length: 15 }, () => "grass"),
       entities: [
-        { kind: "object", id: "baba", x: 0, y: 1 },
+        { kind: "object", id: "baba", x: 1, y: 1 },
         { kind: "text", id: "rock", x: 1, y: 1 },
       ],
     });
     const session = new GameSession(world);
     const text = session.world.entities.filter((e) => e.kind === "text")[0]!;
     expect(session.world.hasProperty(text, "win")).toBe(true);
-    session.dispatch({ type: "move", direction: "right" });
+    session.dispatch({ type: "wait" });
     expect(session.world.status).toBe("won");
   });
 });
