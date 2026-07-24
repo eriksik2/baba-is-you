@@ -205,7 +205,7 @@ describe("campaign levels", () => {
 
   test("jungle-3 fuse blasts tree with TNT boom", () => {
     const session = new GameSession(loadDocument(LEVEL_JUNGLE_3));
-    play(session, "rrruuu");
+    play(session, "rrrrrrruuu");
     expect(session.world.status).toBe("won");
   });
 
@@ -217,20 +217,27 @@ describe("campaign levels", () => {
 
   test("jungle-5 sticky charge clears rocks with boom", () => {
     const session = new GameSession(loadDocument(LEVEL_JUNGLE_5));
-    play(session, "rrrrrrruuu");
+    play(session, "rrrrrruruu");
     expect(session.world.status).toBe("won");
   });
 
-  test("jungle-6 blast path: fruit through TNT then ON door", () => {
+  test("jungle-6 blast path: fuse then fruit ON door", () => {
     const session = new GameSession(loadDocument(LEVEL_JUNGLE_6));
     play(session, "rrrrrrrdruuu");
     expect(session.world.status).toBe("won");
   });
 
-  test("jungle-7 arms AND FRAGILE then wins on door", () => {
+  test("jungle-7 and fragile: fuse then fruit ON door", () => {
     const session = new GameSession(loadDocument(LEVEL_JUNGLE_7));
-    play(session, "rrudrurrrrrdruuu");
+    play(session, "rrrrrrrrdruuu");
     expect(session.world.status).toBe("won");
+  });
+
+  test("dev properties are tagged in the lexicon", () => {
+    const world = loadDocument(LEVEL_JUNGLE_3);
+    for (const id of ["gas", "dynamic", "life", "flux", "confused"]) {
+      expect(world.lexicon.getWord(id as never)?.dev).toBe(true);
+    }
   });
 
   test("level-2, level-4, and special have no text on wall cells", () => {

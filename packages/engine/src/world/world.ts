@@ -27,6 +27,21 @@ export interface TextData {
   wordId: WordId;
 }
 
+/** Continuous 2D body for DYNAMIC objects (cell units, center-based). */
+export interface PhysicsBody {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+/** Stashed FLUX object waiting to reappear. */
+export interface FluxLatent {
+  noun: NounId;
+  x: number;
+  y: number;
+}
+
 /**
  * Authoritative simulation world.
  * Supports global rules + per-area rule scopes (novel vs classic Baba).
@@ -62,6 +77,11 @@ export class World {
   /** World-space origin of cell (0,0) after chunk flatten. */
   originX = 0;
   originY = 0;
+
+  /** DYNAMIC physics bodies keyed by entity id. */
+  physicsBodies = new Map<EntityId, PhysicsBody>();
+  /** FLUX objects that vanished and may reappear. */
+  fluxLatent: FluxLatent[] = [];
 
   constructor(
     width: number,
@@ -140,6 +160,7 @@ export class World {
     if (!e) return;
     this.grid.remove(id, e.position);
     this.textData.delete(id);
+    this.physicsBodies.delete(id);
     this.entities.destroy(id);
   }
 
@@ -359,6 +380,10 @@ export class World {
     w.camera = { ...this.camera };
     w.originX = this.originX;
     w.originY = this.originY;
+    for (const [id, body] of this.physicsBodies) {
+      w.physicsBodies.set(id, { ...body });
+    }
+    w.fluxLatent = this.fluxLatent.map((f) => ({ ...f }));
     return w;
   }
 }

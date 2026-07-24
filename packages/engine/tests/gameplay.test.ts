@@ -307,7 +307,7 @@ baba!,rock!,,,,
     expect(session.world.entities.filter((e) => e.noun === asNounId("fruit")).length).toBe(0);
   });
 
-  test("BOOM destroys neighbors when fragile TNT shatters", () => {
+  test("BOOM destroys neighbors and same-cell YOU when fragile TNT shatters", () => {
     const world = loadDocument({
       id: "boom-test",
       name: "boom",
@@ -336,6 +336,46 @@ baba!,rock!,,,,
     session.dispatch({ type: "move", direction: "right" });
     expect(session.world.entities.filter((e) => e.noun === asNounId("tnt")).length).toBe(0);
     expect(session.world.entities.filter((e) => e.noun === asNounId("tree")).length).toBe(0);
+    // YOU was stacked on the charge → destroyed → lose
+    expect(session.world.entitiesWithProperty("you").length).toBe(0);
+    expect(session.world.status).toBe("lost");
+  });
+
+  test("BOOM from a distance-2 fuse leaves YOU alive", () => {
+    const world = loadDocument({
+      id: "boom-safe",
+      name: "boom-safe",
+      width: 8,
+      height: 3,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "rock", verb: "is", object: "push" },
+        {
+          subject: "tnt",
+          verb: "is",
+          object: "boom",
+          words: ["tnt", "is", "boom", "and", "fragile"],
+        },
+        { subject: "tree", verb: "is", object: "stop" },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 24 }, () => 0),
+      background: Array.from({ length: 24 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "object", id: "rock", x: 2, y: 1 },
+        { kind: "object", id: "tnt", x: 4, y: 1 },
+        { kind: "object", id: "tree", x: 5, y: 1 },
+      ],
+    });
+    const session = new GameSession(world);
+    // Push rock onto TNT: YOU ends at x=2, boom at x=4 → YOU safe (dist 2)
+    session.dispatch({ type: "move", direction: "right" });
+    session.dispatch({ type: "move", direction: "right" });
+    expect(session.world.entities.filter((e) => e.noun === asNounId("tnt")).length).toBe(0);
+    expect(session.world.entities.filter((e) => e.noun === asNounId("tree")).length).toBe(0);
+    expect(session.world.entitiesWithProperty("you").length).toBe(1);
+    expect(session.world.status).toBe("playing");
   });
 
   test("WORD refers to text tiles", () => {
@@ -495,6 +535,31 @@ baba!,rock!,,,,
     expect(rock.facing).toBe("right");
     session.dispatch({ type: "wait" });
     expect(rock.position).toEqual({ x: 4, y: 1 });
+  });
+
+  test("CONFUSED reverses YOU movement", () => {
+    const world = loadDocument({
+      id: "confused-test",
+      name: "confused",
+      width: 5,
+      height: 3,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "baba", verb: "is", object: "confused" },
+        { subject: "wall", verb: "is", object: "stop" },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 15 }, () => 0),
+      background: Array.from({ length: 15 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 2, y: 1 },
+        { kind: "object", id: "wall", x: 0, y: 1 },
+        { kind: "object", id: "wall", x: 4, y: 1 },
+      ],
+    });
+    const session = new GameSession(world);
+    session.dispatch({ type: "move", direction: "right" });
+    expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 1, y: 1 });
   });
 
   test("global AND words expand via parser", () => {

@@ -20,6 +20,13 @@ import {
   type PropertyRegistry,
 } from "../properties";
 import { applyTransforms, applySlide, moveAllYou, resolveOverlaps } from "../systems";
+import {
+  applyGas,
+  applyDynamic,
+  applyLife,
+  applyFlux,
+  syncPhysicsBodies,
+} from "../systems/dev-behaviors";
 import { HistoryStack } from "../history/stack";
 import { EventBus, type GameEventMap } from "../events/bus";
 
@@ -123,6 +130,79 @@ export const slidePhase: TurnPhase = {
   },
 };
 
+export const gasPhase: TurnPhase = {
+  name: "gas",
+  run(ctx) {
+    if (ctx.world.status !== "playing") return;
+    if (
+      ctx.intent.type !== "move" &&
+      ctx.intent.type !== "wait" &&
+      ctx.intent.type !== "tick"
+    ) {
+      return;
+    }
+    if (applyGas(ctx.world, ctx.properties)) {
+      ctx.rulesDirty = true;
+      ctx.worldChanged = true;
+    }
+  },
+};
+
+export const dynamicPhase: TurnPhase = {
+  name: "dynamic",
+  run(ctx) {
+    if (ctx.world.status !== "playing") return;
+    if (
+      ctx.intent.type !== "move" &&
+      ctx.intent.type !== "wait" &&
+      ctx.intent.type !== "tick"
+    ) {
+      return;
+    }
+    syncPhysicsBodies(ctx.world);
+    if (applyDynamic(ctx.world)) {
+      ctx.rulesDirty = true;
+      ctx.worldChanged = true;
+    }
+  },
+};
+
+export const lifePhase: TurnPhase = {
+  name: "life",
+  run(ctx) {
+    if (ctx.world.status !== "playing") return;
+    if (
+      ctx.intent.type !== "move" &&
+      ctx.intent.type !== "wait" &&
+      ctx.intent.type !== "tick"
+    ) {
+      return;
+    }
+    if (applyLife(ctx.world)) {
+      ctx.rulesDirty = true;
+      ctx.worldChanged = true;
+    }
+  },
+};
+
+export const fluxPhase: TurnPhase = {
+  name: "flux",
+  run(ctx) {
+    if (ctx.world.status !== "playing") return;
+    if (
+      ctx.intent.type !== "move" &&
+      ctx.intent.type !== "wait" &&
+      ctx.intent.type !== "tick"
+    ) {
+      return;
+    }
+    if (applyFlux(ctx.world)) {
+      ctx.rulesDirty = true;
+      ctx.worldChanged = true;
+    }
+  },
+};
+
 export const rebuildRulesPhase: TurnPhase = {
   name: "rebuild-rules",
   run(ctx) {
@@ -169,6 +249,10 @@ export function createDefaultPipeline(
       moveYouPhase,
       waitPhase,
       slidePhase,
+      gasPhase,
+      dynamicPhase,
+      lifePhase,
+      fluxPhase,
       rebuildRulesPhase,
       transformPhase,
       rebuildRulesAfterTransformPhase,

@@ -19,6 +19,8 @@ export interface PropertyContext {
 
 export interface PropertyHandler {
   readonly id: PropertyId;
+  /** Experimental / sandbox-only property. */
+  readonly dev?: boolean;
   /**
    * Called when something tries to enter this entity's cell.
    * Return false to block the mover (and any recursive push chain).
@@ -80,6 +82,13 @@ export function createDefaultProperties(): PropertyRegistry {
       if (target.alive) destroyWithEffects(ctx.world, target.id);
     },
   });
+
+  // Dev-tagged sandbox verbs (behavior in systems/dev-behaviors.ts)
+  reg.register({ id: asPropertyId("gas"), dev: true });
+  reg.register({ id: asPropertyId("dynamic"), dev: true });
+  reg.register({ id: asPropertyId("life"), dev: true });
+  reg.register({ id: asPropertyId("flux"), dev: true });
+  reg.register({ id: asPropertyId("confused"), dev: true });
 
   return reg;
 }

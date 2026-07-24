@@ -209,7 +209,7 @@ export class CanvasRenderer {
     const nowMs = typeof performance !== "undefined" ? performance.now() : t * 1000;
     for (const e of entities) {
       if (!e.alive) continue;
-      const pos = this.resolvePos(e, opts.lerp, nowMs);
+      const pos = this.resolvePos(e, world, opts.lerp, nowMs);
       if (pos.x < x0 - 1 || pos.x > x1 + 1 || pos.y < y0 - 1 || pos.y > y1 + 1) continue;
       const { sx, sy } = this.worldToScreen(pos.x, pos.y, cam);
       this.drawEntity(world, e, sx, sy, cs, t, pos.moving, wallCells, Math.round(pos.x), Math.round(pos.y));
@@ -399,9 +399,22 @@ export class CanvasRenderer {
 
   private resolvePos(
     e: EntityRecord,
+    world: World,
     lerp: Map<number, LerpState> | undefined,
     nowMs: number,
   ): { x: number; y: number; moving: boolean } {
+    // DYNAMIC bodies use continuous center coords → top-left for draw.
+    const body = world.physicsBodies.get(e.id);
+    if (body) {
+      const moving = Math.hypot(body.vx, body.vy) > 0.02;
+      if (moving) {
+        let dir: SheepDir = "down";
+        if (Math.abs(body.vx) > Math.abs(body.vy)) dir = body.vx > 0 ? "right" : "left";
+        else dir = body.vy > 0 ? "down" : "up";
+        this.facing.set(e.id as unknown as number, dir);
+      }
+      return { x: body.x - 0.5, y: body.y - 0.5, moving };
+    }
     const anim = lerp?.get(e.id as unknown as number);
     if (!anim || anim.duration <= 0) {
       return { x: e.position.x, y: e.position.y, moving: false };
