@@ -345,6 +345,21 @@ export function mountPlay(api: AppApi): {
     }, 900);
   }
 
+  /** Mark the level cleared and return to overworld (for testing stuck levels). */
+  function skipLevel(): void {
+    if (!session || !sourceDoc) return;
+    if (sourceDoc.isOverworld || fromEditor || isDevWorld) {
+      if (fromEditor) api.showScreen("editor");
+      else api.showScreen("menu");
+      return;
+    }
+    statusEl.textContent = "Skipped";
+    let progress = loadProgress();
+    progress = unlockAfterClear(progress, sourceDoc.id, CAMPAIGN_LEVELS);
+    saveProgress(progress);
+    api.openOverworld();
+  }
+
   function dispatch(intent: PlayerIntent): void {
     if (!session) return;
     if (session.world.status !== "playing" && intent.type === "move") return;
@@ -443,6 +458,7 @@ export function mountPlay(api: AppApi): {
     const action = btn.dataset.menuAction;
     setMenuOpen(false);
     if (action === "restart") dispatch({ type: "restart" });
+    if (action === "skip") skipLevel();
     if (action === "recenter") snapCamera();
     if (action === "exit") {
       if (fromEditor) api.showScreen("editor");

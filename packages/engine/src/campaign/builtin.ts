@@ -301,213 +301,189 @@ export const LEVEL_1: LevelDocument = {
 };
 
 // ---------------------------------------------------------------------------
-// L2 — ROCK IS PUSH; one rock into south pocket, then up the shaft to EXIT
-// Softlock-safe: wall east of rock blocks shoving it toward the exit path.
+// L2 — Shove: walk the north deck, push rock into the south pocket, then EXIT.
+// No walk-around gap (old bug); pushing rock east softlocks against the exit.
 // ---------------------------------------------------------------------------
 
 export const LEVEL_2: LevelDocument = {
   id: "level-2",
   name: "Shove",
-  width: 11,
+  width: 12,
   height: 8,
   globalRules: [
     { subject: "baba", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "push" },
   ],
   areas: [],
-  areaMap: emptyAreaMap(11, 8),
+  areaMap: emptyAreaMap(12, 8),
   background: (() => {
-    const bg = fill(11, 8, BG.grass);
-    stamp(bg, 11, { x: 1, y: 3, w: 5, h: 1 }, BG.path);
-    stamp(bg, 11, { x: 6, y: 1, w: 1, h: 5 }, BG.dirt);
-    stamp(bg, 11, { x: 7, y: 1, w: 2, h: 1 }, BG.path);
+    const bg = fill(12, 8, BG.grass);
+    stamp(bg, 12, { x: 1, y: 1, w: 5, h: 1 }, BG.path);
+    stamp(bg, 12, { x: 1, y: 2, w: 10, h: 1 }, BG.path);
+    stamp(bg, 12, { x: 5, y: 3, w: 1, h: 2 }, BG.dirt);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 52 },
-  portals: [exitAt(9, 1)],
+  portals: [exitAt(10, 2)],
   entities: [
-    ...perimeter(11, 8),
-    // Texts on empty floor (not under walls)
-    txt("rock", 1, 1),
-    txt("is", 2, 1),
-    txt("push", 3, 1),
-    obj("wall", 4, 1),
-    obj("wall", 5, 1),
-    // y=1 shaft/exit lane: (6,1)(7,1)(8,1) open → EXIT (9,1)
-
-    // Ceiling with approach (5,2) + shaft (6,2); wall blocks east of rock
-    ...wallRect(1, 2, 4, 2),
-    ...wallRect(7, 2, 9, 2),
-
-    // Corridor — rock at shaft; wall blocks east push toward EXIT
-    obj("baba", 2, 3),
-    obj("rock", 6, 3),
-    ...wallRect(7, 3, 9, 3),
-
-    // Pocket shaft under the rock
-    ...wallRect(1, 4, 5, 4),
-    ...wallRect(7, 4, 9, 4),
-    ...wallRect(1, 5, 5, 5),
-    ...wallRect(7, 5, 9, 5),
-    ...wallRect(1, 6, 9, 6),
+    ...perimeter(12, 8),
+    txt("rock", 1, 6),
+    txt("is", 2, 6),
+    txt("push", 3, 6),
+    ...wallRect(6, 1, 10, 1),
+    obj("baba", 1, 2),
+    obj("rock", 5, 2),
+    ...wallRect(1, 3, 4, 3),
+    ...wallRect(6, 3, 10, 3),
+    ...wallRect(1, 4, 4, 4),
+    ...wallRect(6, 4, 10, 4),
+    ...wallRect(1, 5, 10, 5),
   ],
 };
 
 // ---------------------------------------------------------------------------
-// L3 — ROCK IS PULL; approach under rock, move south to pull it into pocket
+// L3 — Come Along: rock sits on EXIT (PULL blocks entry). Pull it east, then
+// loop back through the south hall onto the cleared exit cell.
 // ---------------------------------------------------------------------------
 
 export const LEVEL_3: LevelDocument = {
   id: "level-3",
   name: "Come Along",
-  width: 13,
+  width: 12,
   height: 9,
   globalRules: [
     { subject: "baba", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "pull" },
   ],
   areas: [],
-  areaMap: emptyAreaMap(13, 9),
+  areaMap: emptyAreaMap(12, 9),
   background: (() => {
-    const bg = fill(13, 9, BG.grass);
-    stamp(bg, 13, { x: 1, y: 3, w: 11, h: 1 }, BG.path);
-    stamp(bg, 13, { x: 5, y: 4, w: 2, h: 2 }, BG.dirt);
+    const bg = fill(12, 9, BG.grass);
+    stamp(bg, 12, { x: 1, y: 1, w: 1, h: 5 }, BG.path);
+    stamp(bg, 12, { x: 4, y: 3, w: 7, h: 1 }, BG.dirt);
+    stamp(bg, 12, { x: 1, y: 5, w: 10, h: 1 }, BG.path);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 52 },
-  portals: [exitAt(11, 3)],
+  portals: [exitAt(4, 3)],
   entities: [
-    ...perimeter(13, 9),
-    ...wallRect(1, 1, 11, 2),
-    // y=4 open at x=5,6 for approach + pocket; sealed elsewhere
-    ...wallRect(1, 4, 4, 4),
-    ...wallRect(8, 4, 11, 7),
-    ...wallRect(1, 5, 4, 6),
-    obj("wall", 5, 6),
-    obj("wall", 5, 7),
-    obj("wall", 6, 6),
-    obj("wall", 6, 7),
-    obj("wall", 7, 5),
-    obj("wall", 7, 6),
-    obj("wall", 7, 7),
-    ...wallRect(1, 7, 1, 7),
-
-    obj("baba", 2, 3),
-    obj("rock", 6, 3),
-    txt("rock", 2, 7),
-    txt("is", 3, 7),
-    txt("pull", 4, 7),
+    ...perimeter(12, 9),
+    obj("baba", 1, 1),
+    ...wallRect(2, 2, 3, 2),
+    ...wallRect(5, 2, 10, 2),
+    obj("wall", 2, 3),
+    obj("wall", 3, 3),
+    obj("rock", 4, 3),
+    obj("wall", 2, 4),
+    obj("wall", 3, 4),
+    ...wallRect(2, 7, 10, 7),
+    txt("rock", 6, 6),
+    txt("is", 7, 6),
+    txt("pull", 8, 6),
   ],
 };
 
 // ---------------------------------------------------------------------------
-// L4 — push rock A into pocket, rewrite to PULL, extract rock B, EXIT
-// All rule texts sit on empty floor (never on STOP walls).
+// L4 — Two Ways: PUSH a rock aside (deck → pocket), reach the lower hall,
+// then PULL fruit off the EXIT niche and loop back onto it.
 // ---------------------------------------------------------------------------
 
 export const LEVEL_4: LevelDocument = {
   id: "level-4",
   name: "Two Ways",
-  width: 15,
+  width: 14,
   height: 10,
   globalRules: [
     { subject: "baba", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "push" },
+    { subject: "fruit", verb: "is", object: "pull" },
   ],
   areas: [],
-  areaMap: emptyAreaMap(15, 10),
+  areaMap: emptyAreaMap(14, 10),
   background: (() => {
-    const bg = fill(15, 10, BG.grass);
-    stamp(bg, 15, { x: 1, y: 4, w: 13, h: 1 }, BG.path);
-    stamp(bg, 15, { x: 2, y: 1, w: 5, h: 1 }, BG.stone);
+    const bg = fill(14, 10, BG.grass);
+    stamp(bg, 14, { x: 1, y: 1, w: 5, h: 2 }, BG.path);
+    stamp(bg, 14, { x: 10, y: 2, w: 3, h: 5 }, BG.dirt);
+    stamp(bg, 14, { x: 5, y: 3, w: 1, h: 1 }, BG.stone);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 48 },
-  portals: [exitAt(13, 4)],
+  portals: [exitAt(11, 5)],
   entities: [
-    ...perimeter(15, 10),
-    // y=1: open floor for words
-    txt("rock", 2, 1),
-    txt("is", 3, 1),
-    txt("push", 4, 1),
-    txt("pull", 6, 1),
-
-    // Ceiling / structure below the words
-    ...wallRect(1, 2, 8, 2),
-    ...wallRect(10, 2, 13, 2),
-    // (9,2) alcove for rock B
+    ...perimeter(14, 10),
+    txt("rock", 1, 8),
+    txt("is", 2, 8),
+    txt("push", 3, 8),
+    txt("fruit", 5, 8),
+    txt("is", 6, 8),
+    txt("pull", 7, 8),
+    ...wallRect(6, 1, 12, 1),
+    obj("baba", 1, 2),
+    obj("rock", 5, 2),
     ...wallRect(1, 3, 4, 3),
-    ...wallRect(6, 3, 8, 3),
-    ...wallRect(10, 3, 13, 3),
-    // (5,3) open above rock A; (9,3) rock B alcove
-
-    ...wallRect(1, 5, 4, 8),
-    ...wallRect(6, 5, 8, 8),
-    ...wallRect(10, 5, 13, 8),
-    // (5,5) pocket for A; (9,5) landing for pulled B
-    obj("wall", 5, 6),
-    obj("wall", 5, 7),
-    obj("wall", 5, 8),
-    obj("wall", 9, 6),
-    obj("wall", 9, 7),
-    obj("wall", 9, 8),
-
-    obj("baba", 2, 4),
-    obj("rock", 5, 4),
-    obj("rock", 9, 3),
+    ...wallRect(6, 3, 9, 3),
+    ...wallRect(1, 4, 9, 4),
+    obj("wall", 11, 4),
+    obj("wall", 12, 4),
+    obj("fruit", 11, 5),
+    obj("wall", 12, 5),
+    ...wallRect(1, 6, 8, 6),
+    ...wallRect(1, 7, 12, 7),
   ],
 };
 
 // ---------------------------------------------------------------------------
-// Special — push/pull swap; texts on empty floor
+// Special — two gated rocks (wall between) then PULL fruit off EXIT.
 // ---------------------------------------------------------------------------
 
 export const LEVEL_SPECIAL: LevelDocument = {
   id: "level-special",
   name: "Tug of Rules",
-  width: 15,
-  height: 10,
+  width: 14,
+  height: 11,
   globalRules: [
     { subject: "baba", verb: "is", object: "you" },
     { subject: "wall", verb: "is", object: "stop" },
+    { subject: "rock", verb: "is", object: "push" },
+    { subject: "fruit", verb: "is", object: "pull" },
   ],
   areas: [],
-  areaMap: emptyAreaMap(15, 10),
+  areaMap: emptyAreaMap(14, 11),
   background: (() => {
-    const bg = fill(15, 10, BG.grass2);
-    stamp(bg, 15, { x: 1, y: 4, w: 13, h: 1 }, BG.path);
-    stamp(bg, 15, { x: 2, y: 1, w: 7, h: 1 }, BG.stone);
+    const bg = fill(14, 11, BG.grass2);
+    stamp(bg, 14, { x: 1, y: 1, w: 6, h: 2 }, BG.path);
+    stamp(bg, 14, { x: 10, y: 3, w: 3, h: 5 }, BG.dirt);
     return bg;
   })(),
   camera: { mode: "follow", zoom: 48 },
-  portals: [exitAt(13, 4)],
+  portals: [exitAt(11, 6)],
   entities: [
-    ...perimeter(15, 10),
-    // Words on empty floor
-    txt("rock", 2, 1),
-    txt("is", 3, 1),
-    txt("push", 4, 1),
-    txt("pull", 8, 1),
-
-    ...wallRect(1, 2, 13, 2),
-    ...wallRect(1, 3, 5, 3),
-    ...wallRect(7, 3, 13, 3),
-    // (6,3) alcove for jammed rock
-
-    ...wallRect(1, 5, 8, 8),
-    ...wallRect(11, 5, 13, 8),
-    // pocket (9,5)(10,5) open
-    obj("wall", 9, 6),
-    obj("wall", 10, 6),
-    obj("wall", 9, 7),
-    obj("wall", 10, 7),
-    obj("wall", 9, 8),
-    obj("wall", 10, 8),
-
-    obj("baba", 2, 4),
-    obj("rock", 6, 3),
-    obj("rock", 9, 4),
-    obj("rock", 10, 4),
+    ...perimeter(14, 11),
+    ...wallRect(7, 1, 12, 1),
+    obj("baba", 1, 2),
+    obj("rock", 3, 2),
+    obj("wall", 4, 2),
+    obj("rock", 6, 2),
+    ...wallRect(1, 3, 2, 3),
+    obj("wall", 4, 3),
+    obj("wall", 5, 3),
+    ...wallRect(7, 3, 9, 3),
+    ...wallRect(1, 4, 9, 4),
+    obj("wall", 11, 5),
+    obj("wall", 12, 5),
+    obj("fruit", 11, 6),
+    obj("wall", 12, 6),
+    ...wallRect(1, 7, 8, 7),
+    ...wallRect(1, 8, 12, 8),
+    txt("rock", 1, 9),
+    txt("is", 2, 9),
+    txt("push", 3, 9),
+    txt("fruit", 5, 9),
+    txt("is", 6, 9),
+    txt("pull", 7, 9),
   ],
 };
 
