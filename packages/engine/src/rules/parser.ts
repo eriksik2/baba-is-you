@@ -81,11 +81,35 @@ export function parseRules(ctx: ParseContext): RuleSet {
   });
 
   for (const start of nounStarts) {
-    features.push(...tryParseFrom(ctx, byCell, start, "horizontal"));
-    features.push(...tryParseFrom(ctx, byCell, start, "vertical"));
+    // Nouns that are ON-targets (preceded by ON on this axis) must not also
+    // start a shorter sentence sharing the same IS — otherwise
+    // FRUIT ON DOOR IS WIN would spuriously also yield DOOR IS WIN.
+    if (!isOnTargetTile(ctx, byCell, start, "horizontal")) {
+      features.push(...tryParseFrom(ctx, byCell, start, "horizontal"));
+    }
+    if (!isOnTargetTile(ctx, byCell, start, "vertical")) {
+      features.push(...tryParseFrom(ctx, byCell, start, "vertical"));
+    }
   }
 
   return buildRuleSet(features);
+}
+
+/** True if the tile immediately before `tile` on `axis` is the operator ON. */
+function isOnTargetTile(
+  ctx: ParseContext,
+  byCell: Map<string, TextTile[]>,
+  tile: TextTile,
+  axis: Axis,
+): boolean {
+  const dx = axis === "horizontal" ? 1 : 0;
+  const dy = axis === "vertical" ? 1 : 0;
+  const px = tile.x - dx;
+  const py = tile.y - dy;
+  if (px < 0 || py < 0) return false;
+  const prev = byCell.get(cellKey(px, py));
+  if (!prev) return false;
+  return prev.some((t) => isOp(ctx, t.wordId, "on"));
 }
 
 function tryParseFrom(

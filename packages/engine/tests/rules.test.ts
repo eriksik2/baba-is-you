@@ -111,6 +111,8 @@ describe("rules parser", () => {
     expect(rules.propertiesByNoun.get(asNounId("fruit"))?.has(asPropertyId("win")) ?? false).toBe(
       false,
     );
+    // ON-target must not also form DOOR IS WIN from the same tiles.
+    expect(rules.features.some((f) => f.key === "door is win")).toBe(false);
   });
 
   test("parses SLIDE and WIN properties", () => {
