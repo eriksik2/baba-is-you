@@ -114,6 +114,57 @@ describe("campaign levels", () => {
     );
   });
 
+  test("level-2 is solvable (deck push into pocket)", () => {
+    const session = new GameSession(loadDocument(LEVEL_2));
+    for (const c of "urrrrdrrrrr") {
+      session.dispatch({
+        type: "move",
+        direction: ({ u: "up", d: "down", l: "left", r: "right" } as const)[c]!,
+      });
+      if (session.world.status === "won") break;
+    }
+    expect(session.world.status).toBe("won");
+  });
+
+  test("level-3 is solvable (pull rock off exit)", () => {
+    const session = new GameSession(loadDocument(LEVEL_3));
+    for (const c of "ddddrrrudruul") {
+      session.dispatch({
+        type: "move",
+        direction: ({ u: "up", d: "down", l: "left", r: "right" } as const)[c]!,
+      });
+      if (session.world.status === "won") break;
+    }
+    expect(session.world.status).toBe("won");
+  });
+
+  test("level-4 is solvable (push gate + pull fruit)", () => {
+    const session = new GameSession(loadDocument(LEVEL_4));
+    expect(
+      session.world.activeFeaturesForDisplay().some((k) => k.includes("fruit is pull")),
+    ).toBe(true);
+    for (const c of "rrrrrrrrrdddldrru") {
+      session.dispatch({
+        type: "move",
+        direction: ({ u: "up", d: "down", l: "left", r: "right" } as const)[c]!,
+      });
+      if (session.world.status === "won") break;
+    }
+    expect(session.world.status).toBe("won");
+  });
+
+  test("level-special is solvable", () => {
+    const session = new GameSession(loadDocument(LEVEL_SPECIAL));
+    for (const c of "urrrrdrrrrrddddldrru") {
+      session.dispatch({
+        type: "move",
+        direction: ({ u: "up", d: "down", l: "left", r: "right" } as const)[c]!,
+      });
+      if (session.world.status === "won") break;
+    }
+    expect(session.world.status).toBe("won");
+  });
+
   test("jungle-1 loads with fruit, door, and ON win sentence", () => {
     const world = loadDocument(LEVEL_JUNGLE_1);
     const objs = [...world.entities.values()].filter((e) => e.kind === "object");
