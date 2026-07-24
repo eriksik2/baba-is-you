@@ -1,80 +1,48 @@
 import type { Lexicon } from "../lexicon";
 import { createDefaultLexicon } from "../lexicon";
-import {
-  asNounId,
-  asOperatorId,
-  asPropertyId,
-  asWordId,
-} from "../types";
-import { createFeature, type Feature, type RuleSet } from "../rules";
+import { asWordId } from "../types";
+import { parseRules, type Feature, type RuleSet } from "../rules";
 import { buildRuleSet } from "../rules/parser";
+import { createFeature } from "../rules";
+import { asNounId, asOperatorId, asPropertyId } from "../types";
 import type { GlobalRuleSpec } from "./types";
+import { globalRuleWords } from "./types";
 
 /** Convert declarative global rule specs into a RuleSet. */
 export function rulesFromGlobalSpecs(
   specs: readonly GlobalRuleSpec[],
   lexicon: Lexicon = createDefaultLexicon(),
 ): RuleSet {
-  const features: Feature[] = [];
-
-  features.push(
+  const features: Feature[] = [
     createFeature(
       { noun: asNounId("text"), negated: false },
       asOperatorId("is"),
       { kind: "property", property: asPropertyId("push"), negated: false },
       "horizontal",
     ),
-  );
+  ];
 
   for (const s of specs) {
-    const verb = asOperatorId(s.verb);
-    const subject = asNounId(s.subject);
-    const objWord = lexicon.getWord(asWordId(s.object));
-    if (objWord?.wordClass === "property" && objWord.namesProperty) {
-      features.push(
-        createFeature(
-          { noun: subject, negated: false },
-          verb,
-          {
-            kind: "property",
-            property: objWord.namesProperty,
-            negated: false,
-          },
-          "horizontal",
-        ),
-      );
-    } else if (objWord?.wordClass === "noun" && objWord.namesNoun) {
-      features.push(
-        createFeature(
-          { noun: subject, negated: false },
-          verb,
-          { kind: "noun", noun: objWord.namesNoun, negated: false },
-          "horizontal",
-        ),
-      );
-    } else if (lexicon.getNoun(asNounId(s.object))) {
-      features.push(
-        createFeature(
-          { noun: subject, negated: false },
-          verb,
-          { kind: "noun", noun: asNounId(s.object), negated: false },
-          "horizontal",
-        ),
-      );
-    } else {
-      features.push(
-        createFeature(
-          { noun: subject, negated: false },
-          verb,
-          {
-            kind: "property",
-            property: asPropertyId(s.object),
-            negated: false,
-          },
-          "horizontal",
-        ),
-      );
-    }
+    const words = globalRuleWords(s);
+    if (words.length < 3) continue;
+
+    const texts = words.map((id, x) => ({
+      wordId: asWordId(id),
+      x,
+      y: 0,
+    }));
+
+    // Validate every token exists in the lexicon; skip broken sentences.
+    if (texts.some((t) => !lexicon.getWord(t.wordId))) continue;
+
+    const parsed = parseRules({
+      lexicon,
+      width: words.length,
+      height: 1,
+      texts,
+      includeImplicitTextPush: false,
+    });
+    features.push(...parsed.features);
   }
 
   return buildRuleSet(features);

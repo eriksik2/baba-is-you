@@ -111,6 +111,7 @@ export function createDefaultLexicon(): Lexicon {
     ["stop", "STOP"],
     ["pull", "PULL"],
     ["slide", "SLIDE"],
+    ["sticky", "STICKY"],
     ["win", "WIN"],
   ];
 

@@ -1,5 +1,6 @@
 import type {
   GameSession,
+  GlobalRuleSpec,
   LevelCameraSettings,
   LevelDocument,
   LevelEntitySpec,
@@ -14,6 +15,7 @@ import {
   canEnterPortal,
   createBlankLevel,
   createDefaultLexicon,
+  globalRuleWords,
   loadDocument,
   migrateDenseToChunks,
   resolveCamera,
@@ -28,7 +30,10 @@ import {
   saveCustomLevel,
   saveProgress,
 } from "../storage/save";
-
+import {
+  emptyGlobalRule,
+  mountRuleSentenceEditor,
+} from "../ui/rule-sentence";
 const LERP_MS = 110;
 const FOLLOW = 0.22;
 const ZOOM_MIN = 14;
@@ -43,6 +48,7 @@ export type AppApi = {
   showScreen: (id: "menu" | "play" | "editor-hub" | "editor") => void;
   openLevel: (doc: LevelDocument, opts?: { fromEditor?: boolean; returnTo?: string }) => void;
   openOverworld: () => void;
+  openDevWorld: () => void;
 };
 
 function clampZoom(z: number): number {
@@ -99,6 +105,9 @@ export function mountPlay(api: AppApi): {
   const levelName = document.querySelector<HTMLParagraphElement>("#level-name")!;
   const menuBtn = document.querySelector<HTMLButtonElement>("#btn-menu")!;
   const menuPanel = document.querySelector<HTMLElement>("#hamburger-panel")!;
+  const devPanel = document.querySelector<HTMLDetailsElement>("#dev-rules-panel")!;
+  const devRulesEl = document.querySelector<HTMLElement>("#dev-global-rules")!;
+  const devAddBtn = document.querySelector<HTMLButtonElement>("#btn-dev-add-rule")!;
 
   const renderer = new CanvasRenderer(canvas);
   let session: GameSession | null = null;
@@ -110,6 +119,24 @@ export function mountPlay(api: AppApi): {
   let lastT = performance.now();
   let camera: Camera = { x: 0, y: 0, zoom: 48 };
   let youFocus = 0;
+  let isDevWorld = false;
+
+  const devRulesEditor = mountRuleSentenceEditor({
+    root: devRulesEl,
+    onChange: (rules) => {
+      if (!session || !sourceDoc || !isDevWorld) return;
+      sourceDoc.globalRules = rules.map((r) => ({
+        ...r,
+        words: [...globalRuleWords(r)],
+      }));
+      session.world.globalRuleSpecs = sourceDoc.globalRules.map((r) => ({
+        ...r,
+        words: [...(r.words ?? globalRuleWords(r))],
+      }));
+      session.world.rebuildRules();
+      refreshRules();
+    },
+  });
 
   const youSwitcher = document.querySelector<HTMLElement>("#you-switcher")!;
   const youLabel = document.querySelector<HTMLElement>("#you-label")!;
@@ -246,7 +273,7 @@ export function mountPlay(api: AppApi): {
       t: now / 1000,
       lerp,
       camera,
-      showAreas: false,
+      showAreas: isDevWorld,
       areaDefs: session.world.areaDefs,
       portals: session.world.portals,
       progressPortals: progressPortals(),
@@ -348,6 +375,7 @@ export function mountPlay(api: AppApi): {
   function open(doc: LevelDocument, opts?: { fromEditor?: boolean }): void {
     sourceDoc = structuredClone(doc);
     fromEditor = !!opts?.fromEditor;
+    isDevWorld = doc.id === "dev-world";
     const world = loadDocument(doc);
     const progress = loadProgress();
     if (doc.isOverworld && progress.overworldPos) {
@@ -374,6 +402,21 @@ export function mountPlay(api: AppApi): {
     setMenuOpen(false);
     refreshRules();
     refreshYouSwitcher();
+    screen.classList.toggle("dev-world", isDevWorld);
+    devPanel.hidden = !isDevWorld;
+    if (isDevWorld) {
+      const rules: GlobalRuleSpec[] = (sourceDoc.globalRules ?? []).map((r) => ({
+        ...r,
+        words: [...globalRuleWords(r)],
+      }));
+      if (!rules.length) rules.push(emptyGlobalRule());
+      sourceDoc.globalRules = rules;
+      session.world.globalRuleSpecs = rules.map((r) => ({ ...r }));
+      session.world.rebuildRules();
+      refreshRules();
+      devRulesEditor.render(rules);
+      devPanel.open = true;
+    }
     api.showScreen("play");
     layout();
     snapCamera();
@@ -382,7 +425,7 @@ export function mountPlay(api: AppApi): {
       t: performance.now() / 1000,
       lerp,
       camera,
-      showAreas: false,
+      showAreas: isDevWorld,
       areaDefs: session.world.areaDefs,
       portals: session.world.portals,
       progressPortals: progressPortals(),
@@ -424,6 +467,16 @@ export function mountPlay(api: AppApi): {
     snapCamera();
   });
 
+  devAddBtn.addEventListener("click", () => {
+    if (!sourceDoc || !session || !isDevWorld) return;
+    const rules = [...(sourceDoc.globalRules ?? []), emptyGlobalRule()];
+    sourceDoc.globalRules = rules;
+    session.world.globalRuleSpecs = rules.map((r) => ({ ...r }));
+    session.world.rebuildRules();
+    refreshRules();
+    devRulesEditor.render(rules);
+  });
+
   controls = bindControls((intent) => dispatch(intent), {
     root: screen,
     swipeTarget: canvas,
@@ -441,6 +494,7 @@ export function mountPlay(api: AppApi): {
       cancelAnimationFrame(raf);
       controls?.destroy();
       ro.disconnect();
+      devRulesEditor.destroy();
     },
   };
 }
@@ -586,6 +640,18 @@ export function mountEditor(api: AppApi): {
   let doc: DenseDoc = toDenseWorkingDoc(
     createBlankLevel(`custom-${Date.now()}`, "Untitled", 16, 12),
   );
+
+  const globalsEditor = mountRuleSentenceEditor({
+    root: globalsEl,
+    lexicon,
+    onChange: (rules) => {
+      doc.globalRules = rules.map((r) => ({
+        ...r,
+        words: [...globalRuleWords(r)],
+      }));
+    },
+  });
+
   let layer: "objects" | "text" | "background" | "areas" | "erase" = "objects";
   let drawMode: "paint" | "box" | "fill" = "paint";
   let selected = "wall";
@@ -776,17 +842,12 @@ export function mountEditor(api: AppApi): {
   }
 
   function renderGlobals(): void {
-    globalsEl.innerHTML = "";
-    doc.globalRules.forEach((rule, i) => {
-      const row = document.createElement("div");
-      row.className = "rule-row";
-      row.innerHTML = `
-        <input data-g="subject" data-i="${i}" value="${rule.subject}" />
-        <input data-g="verb" data-i="${i}" value="${rule.verb}" />
-        <input data-g="object" data-i="${i}" value="${rule.object}" />
-        <button type="button" data-del-g="${i}">✕</button>`;
-      globalsEl.appendChild(row);
-    });
+    const rules: GlobalRuleSpec[] = (doc.globalRules ?? []).map((r) => ({
+      ...r,
+      words: [...globalRuleWords(r)],
+    }));
+    doc.globalRules = rules;
+    globalsEditor.render(rules);
   }
 
   function renderAreas(): void {
@@ -1007,20 +1068,6 @@ export function mountEditor(api: AppApi): {
     });
   });
 
-  globalsEl.addEventListener("input", (ev) => {
-    const t = ev.target as HTMLInputElement;
-    const i = Number(t.dataset.i);
-    const g = t.dataset.g as "subject" | "verb" | "object" | undefined;
-    if (!g || Number.isNaN(i) || !doc.globalRules[i]) return;
-    doc.globalRules[i]![g] = t.value.trim().toLowerCase();
-  });
-  globalsEl.addEventListener("click", (ev) => {
-    const t = (ev.target as HTMLElement).closest<HTMLElement>("[data-del-g]");
-    if (!t) return;
-    doc.globalRules.splice(Number(t.dataset.delG), 1);
-    renderGlobals();
-  });
-
   areasEl.addEventListener("click", (ev) => {
     const t = ev.target as HTMLElement;
     if (t.dataset.delA !== undefined) {
@@ -1058,7 +1105,7 @@ export function mountEditor(api: AppApi): {
   });
 
   document.querySelector("[data-action='add-global-rule']")?.addEventListener("click", () => {
-    doc.globalRules.push({ subject: "baba", verb: "is", object: "you" });
+    doc.globalRules.push(emptyGlobalRule());
     renderGlobals();
   });
   document.querySelector("[data-action='add-area']")?.addEventListener("click", () => {

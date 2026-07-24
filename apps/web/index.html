@@ -27,6 +27,7 @@
         </div>
         <nav class="menu-nav">
           <button type="button" class="menu-btn primary" data-action="play">Play</button>
+          <button type="button" class="menu-btn" data-action="dev-world">Dev world</button>
           <button type="button" class="menu-btn" data-action="editor">Editor</button>
           <button type="button" class="menu-btn ghost" data-action="credits">Credits</button>
         </nav>
@@ -56,6 +57,13 @@
         <section class="rules-bar" aria-label="Active rules">
           <ul id="rules-list"></ul>
         </section>
+
+        <details id="dev-rules-panel" class="dev-rules-panel" hidden>
+          <summary>Global rules (dev)</summary>
+          <div id="dev-global-rules" class="global-rules-editor"></div>
+          <button type="button" class="chip-btn" id="btn-dev-add-rule">+ Rule</button>
+          <p class="hint">Tap empty chips to pick words. AND / ON add more slots.</p>
+        </details>
 
         <div class="stage">
           <div class="board-shell">

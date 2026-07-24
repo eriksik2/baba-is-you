@@ -650,6 +650,155 @@ export const LEVEL_JUNGLE_2: LevelDocument = {
   })(),
 };
 
+// ---------------------------------------------------------------------------
+// Dev World — sandbox for testing properties & combinations (editable globals)
+// ---------------------------------------------------------------------------
+
+const DEV_W = 32;
+const DEV_H = 16;
+
+export const DEV_WORLD: LevelDocument = {
+  id: "dev-world",
+  name: "Dev World",
+  width: DEV_W,
+  height: DEV_H,
+  chunkSize: DEFAULT_CHUNK_SIZE,
+  globalRules: [
+    { subject: "baba", verb: "is", object: "you", words: ["baba", "is", "you"] },
+    { subject: "wall", verb: "is", object: "stop", words: ["wall", "is", "stop"] },
+    { subject: "tree", verb: "is", object: "stop", words: ["tree", "is", "stop"] },
+  ],
+  areas: [
+    { id: 1, name: "Hub", color: "rgba(80,160,200,0.25)" },
+    { id: 2, name: "Sticky+Push", color: "rgba(200,140,60,0.25)" },
+    { id: 3, name: "Sticky+Pull", color: "rgba(160,100,200,0.25)" },
+    { id: 4, name: "Sticky+Slide", color: "rgba(60,180,120,0.25)" },
+    { id: 5, name: "AND / ON", color: "rgba(220,80,120,0.25)" },
+    { id: 6, name: "Win lab", color: "rgba(220,200,60,0.25)" },
+  ],
+  areaMap: (() => {
+    const am = emptyAreaMap(DEV_W, DEV_H);
+    stampArea(am, DEV_W, { x: 1, y: 1, w: 8, h: 6 }, 1);
+    stampArea(am, DEV_W, { x: 11, y: 1, w: 9, h: 6 }, 2);
+    stampArea(am, DEV_W, { x: 22, y: 1, w: 9, h: 6 }, 3);
+    stampArea(am, DEV_W, { x: 1, y: 9, w: 10, h: 6 }, 4);
+    stampArea(am, DEV_W, { x: 13, y: 9, w: 9, h: 6 }, 5);
+    stampArea(am, DEV_W, { x: 24, y: 9, w: 7, h: 6 }, 6);
+    return am;
+  })(),
+  background: (() => {
+    const bg = fill(DEV_W, DEV_H, BG.grass);
+    stamp(bg, DEV_W, { x: 1, y: 1, w: 8, h: 6 }, BG.path);
+    stamp(bg, DEV_W, { x: 11, y: 1, w: 9, h: 6 }, BG.dirt);
+    stamp(bg, DEV_W, { x: 22, y: 1, w: 9, h: 6 }, BG.stone);
+    stamp(bg, DEV_W, { x: 1, y: 9, w: 10, h: 6 }, BG.jungle);
+    stamp(bg, DEV_W, { x: 13, y: 9, w: 9, h: 6 }, BG.flower);
+    stamp(bg, DEV_W, { x: 24, y: 9, w: 7, h: 6 }, BG.grass2);
+    // corridors between rooms
+    stamp(bg, DEV_W, { x: 9, y: 3, w: 2, h: 1 }, BG.path);
+    stamp(bg, DEV_W, { x: 20, y: 3, w: 2, h: 1 }, BG.path);
+    stamp(bg, DEV_W, { x: 4, y: 7, w: 1, h: 2 }, BG.path);
+    stamp(bg, DEV_W, { x: 16, y: 7, w: 1, h: 2 }, BG.path);
+    stamp(bg, DEV_W, { x: 26, y: 7, w: 1, h: 2 }, BG.path);
+    return bg;
+  })(),
+  camera: { mode: "follow", zoom: 44 },
+  spawn: { x: 3, y: 4 },
+  entities: (() => {
+    const ents: LevelEntitySpec[] = [...perimeter(DEV_W, DEV_H)];
+    // Room dividers with doorways
+    for (let y = 1; y <= 6; y++) {
+      if (y === 3) continue;
+      ents.push(obj("wall", 10, y));
+      ents.push(obj("wall", 21, y));
+    }
+    for (let y = 9; y <= 14; y++) {
+      if (y === 11) continue;
+      ents.push(obj("wall", 12, y));
+      ents.push(obj("wall", 23, y));
+    }
+    for (let x = 1; x <= 30; x++) {
+      if (x === 4 || x === 16 || x === 26) continue;
+      ents.push(obj("wall", x, 8));
+    }
+
+    // Hub
+    ents.push(obj("baba", 3, 4));
+    ents.push(txt("baba", 2, 1), txt("is", 3, 1), txt("you", 4, 1));
+
+    // Sticky + Push lab — set rock sticky via board; fruit push
+    ents.push(
+      txt("rock", 12, 1),
+      txt("is", 13, 1),
+      txt("sticky", 14, 1),
+      txt("fruit", 12, 2),
+      txt("is", 13, 2),
+      txt("push", 14, 2),
+      obj("rock", 15, 4),
+      obj("fruit", 13, 4),
+      obj("rock", 17, 5),
+    );
+
+    // Sticky + Pull lab
+    ents.push(
+      txt("rock", 23, 1),
+      txt("is", 24, 1),
+      txt("sticky", 25, 1),
+      txt("and", 26, 1),
+      txt("pull", 27, 1),
+      obj("rock", 25, 4),
+      obj("rock", 27, 4),
+    );
+
+    // Sticky + Slide lab
+    ents.push(
+      txt("fruit", 2, 9),
+      txt("is", 3, 9),
+      txt("slide", 4, 9),
+      txt("and", 5, 9),
+      txt("push", 6, 9),
+      txt("rock", 2, 10),
+      txt("is", 3, 10),
+      txt("sticky", 4, 10),
+      obj("fruit", 3, 12),
+      obj("rock", 5, 12),
+      obj("rock", 6, 11),
+      obj("wall", 10, 12),
+    );
+
+    // AND / ON showcase (board sentences; win via fruit on door)
+    ents.push(
+      txt("fruit", 14, 9),
+      txt("on", 15, 9),
+      txt("door", 16, 9),
+      txt("is", 17, 9),
+      txt("win", 18, 9),
+      txt("fruit", 14, 10),
+      txt("is", 15, 10),
+      txt("push", 16, 10),
+      obj("fruit", 15, 12),
+      obj("door", 18, 12),
+      obj("tree", 20, 11),
+      obj("tree", 20, 12),
+      obj("tree", 20, 13),
+    );
+
+    // Win / word lab
+    ents.push(
+      txt("door", 25, 9),
+      txt("is", 26, 9),
+      txt("win", 27, 9),
+      txt("word", 25, 10),
+      txt("is", 26, 10),
+      txt("push", 27, 10),
+      obj("door", 27, 12),
+      obj("rock", 25, 12),
+    );
+
+    return ents;
+  })(),
+};
+
 export const CAMPAIGN_LEVELS: LevelDocument[] = [
   OVERWORLD,
   LEVEL_1,
@@ -659,8 +808,9 @@ export const CAMPAIGN_LEVELS: LevelDocument[] = [
   LEVEL_SPECIAL,
   LEVEL_JUNGLE_1,
   LEVEL_JUNGLE_2,
+  DEV_WORLD,
 ];
 
-export const INITIAL_UNLOCKS: string[] = ["overworld", "level-1"];
+export const INITIAL_UNLOCKS: string[] = ["overworld", "level-1", "dev-world"];
 
 export type { GlobalRuleSpec, LevelDocument, LevelEntitySpec, AreaDef };
