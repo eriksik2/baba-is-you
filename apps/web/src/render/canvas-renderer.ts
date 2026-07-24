@@ -8,6 +8,9 @@ const PALETTE: Record<string, string> = {
   baba: "#fff4e0",
   wall: "#7a8ca4",
   rock: "#e0b078",
+  tree: "#3d6b3a",
+  fruit: "#e06050",
+  door: "#8b5a2b",
   text: "#ffffff",
   "text-noun": "#3db4ff",
   "text-property": "#ff5aad",
@@ -472,7 +475,10 @@ export class CanvasRenderer {
     }
 
     if (e.noun === "baba") {
-      const dir = this.facing.get(e.id as unknown as number) ?? "down";
+      // Prefer lerp-derived facing while animating; otherwise engine facing.
+      const lerpDir = this.facing.get(e.id as unknown as number);
+      const engineDir = e.facing as SheepDir | undefined;
+      const dir: SheepDir = (moving ? lerpDir : undefined) ?? engineDir ?? lerpDir ?? "down";
       const frame = moving ? Math.floor(t * 8) : 0;
       if (this.assets.sheep) this.assets.drawSheep(ctx, x, y, cs, dir, frame);
       else this.drawFallbackCreature(ctx, x, y, cs, PALETTE.baba ?? "#fff4e0", eye);
@@ -482,6 +488,11 @@ export class CanvasRenderer {
     if (e.noun === "wall") {
       this.drawWall(ctx, x, y, cs, this.wallMask(cellX, cellY, wallCells));
       return;
+    }
+
+    if (e.noun === "tree" || e.noun === "fruit" || e.noun === "door") {
+      if (this.assets.drawSprite(ctx, e.noun as "tree" | "fruit" | "door", x, y, cs)) return;
+      // Fall through to colored shape if sprite missing.
     }
 
     const noun = world.lexicon.getNoun(e.noun);
@@ -499,6 +510,29 @@ export class CanvasRenderer {
       ctx.beginPath();
       ctx.ellipse(x + cs / 2 - cs * 0.08, y + cs / 2 - cs * 0.06, cs * 0.12, cs * 0.08, -0.4, 0, Math.PI * 2);
       ctx.fill();
+    } else if (e.noun === "tree") {
+      this.drawFallbackTree(ctx, x, y, cs, color, strokeW);
+    } else if (e.noun === "fruit") {
+      ctx.beginPath();
+      ctx.arc(x + cs / 2, y + cs / 2, cs * 0.28, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(40, 16, 10, 0.65)";
+      ctx.lineWidth = strokeW;
+      ctx.stroke();
+      ctx.fillStyle = "#4a7a38";
+      ctx.fillRect(x + cs * 0.46, y + cs * 0.22, cs * 0.08, cs * 0.14);
+    } else if (e.noun === "door") {
+      roundRect(ctx, x + inset + 2, y + inset, cs - inset * 2 - 4, cs - inset * 2, Math.max(2, cs * 0.06));
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(20, 12, 8, 0.7)";
+      ctx.lineWidth = strokeW;
+      ctx.stroke();
+      ctx.fillStyle = "#e8c86a";
+      ctx.beginPath();
+      ctx.arc(x + cs * 0.68, y + cs * 0.52, Math.max(1.5, cs * 0.05), 0, Math.PI * 2);
+      ctx.fill();
     } else {
       roundRect(ctx, x + inset + 1, y + inset + 1, cs - inset * 2 - 2, cs - inset * 2 - 2, Math.max(4, cs * 0.16));
       ctx.fillStyle = color;
@@ -507,6 +541,25 @@ export class CanvasRenderer {
       ctx.lineWidth = strokeW;
       ctx.stroke();
     }
+  }
+
+  private drawFallbackTree(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    cs: number,
+    color: string,
+    strokeW: number,
+  ): void {
+    ctx.fillStyle = "#6b4428";
+    ctx.fillRect(x + cs * 0.42, y + cs * 0.55, cs * 0.16, cs * 0.32);
+    ctx.beginPath();
+    ctx.ellipse(x + cs / 2, y + cs * 0.42, cs * 0.32, cs * 0.3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(12, 24, 10, 0.65)";
+    ctx.lineWidth = strokeW;
+    ctx.stroke();
   }
 
   private drawFallbackCreature(

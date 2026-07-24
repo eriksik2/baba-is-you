@@ -83,6 +83,7 @@ export function tryMove(
   }
 
   world.moveEntity(entity.id, dest);
+  entity.facing = direction;
   const movers = [...pushed, entity];
 
   const landedWith = world.grid.entitiesAt(dest, world.entities);
@@ -120,7 +121,6 @@ export function applyPullChain(
     const res = tryMove(world, properties, p, direction, visiting);
     if (!res.moved) continue;
     movers.push(...res.movers);
-    // Continue the chain from the cell the pullable just left.
     movers.push(...applyPullChain(world, properties, behind, direction, visiting));
   }
   return movers;
@@ -154,6 +154,46 @@ export function moveAllYou(
       allMovers.push(...applyPullChain(world, properties, from, direction));
     }
   }
+  return { moved: any, movers: allMovers };
+}
+
+/**
+ * SLIDE: keep stepping in facing until blocked.
+ * Runs after player move/wait so pushed + you slides continue the same turn.
+ */
+export function applySlide(
+  world: World,
+  properties: PropertyRegistry,
+): MoveResult {
+  const maxSteps = Math.max(1, world.width * world.height);
+  const allMovers: EntityRecord[] = [];
+  let any = false;
+
+  for (let step = 0; step < maxSteps; step++) {
+    const sliders = world
+      .entitiesWithProperty("slide")
+      .filter((e) => e.alive)
+      .sort((a, b) => {
+        if (a.position.y !== b.position.y) return a.position.y - b.position.y;
+        if (a.position.x !== b.position.x) return a.position.x - b.position.x;
+        return (a.id as unknown as number) - (b.id as unknown as number);
+      });
+
+    let stepped = false;
+    for (const e of sliders) {
+      const cur = world.entities.get(e.id);
+      if (!cur?.alive) continue;
+      if (!world.hasProperty(cur, "slide")) continue;
+      const res = tryMove(world, properties, cur, cur.facing);
+      if (res.moved) {
+        stepped = true;
+        any = true;
+        allMovers.push(...res.movers);
+      }
+    }
+    if (!stepped) break;
+  }
+
   return { moved: any, movers: allMovers };
 }
 

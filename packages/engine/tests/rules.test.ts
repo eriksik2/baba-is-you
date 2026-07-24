@@ -81,4 +81,45 @@ describe("rules parser", () => {
       false,
     );
   });
+
+  test("parses AND on both sides of IS", () => {
+    const rules = parseRules({
+      lexicon,
+      width: 8,
+      height: 1,
+      texts: tiles(["baba", "and", "rock", "is", "you", "and", "push"]),
+    });
+    expect(rules.propertiesByNoun.get(asNounId("baba"))?.has(asPropertyId("you"))).toBe(true);
+    expect(rules.propertiesByNoun.get(asNounId("baba"))?.has(asPropertyId("push"))).toBe(true);
+    expect(rules.propertiesByNoun.get(asNounId("rock"))?.has(asPropertyId("you"))).toBe(true);
+    expect(rules.propertiesByNoun.get(asNounId("rock"))?.has(asPropertyId("push"))).toBe(true);
+  });
+
+  test("parses ON condition into feature", () => {
+    const rules = parseRules({
+      lexicon,
+      width: 6,
+      height: 1,
+      texts: tiles(["fruit", "on", "door", "is", "win"]),
+    });
+    const onWin = rules.features.find((f) => f.key === "fruit on door is win");
+    expect(onWin).toBeTruthy();
+    expect(onWin!.conditions).toEqual([
+      { kind: "on", noun: asNounId("door"), negated: false },
+    ]);
+    // Unconditional index must not grant fruit win without ON.
+    expect(rules.propertiesByNoun.get(asNounId("fruit"))?.has(asPropertyId("win")) ?? false).toBe(
+      false,
+    );
+  });
+
+  test("parses SLIDE and WIN properties", () => {
+    const rules = parseRules({
+      lexicon,
+      width: 5,
+      height: 1,
+      texts: tiles(["rock", "is", "slide"]),
+    });
+    expect(rules.propertiesByNoun.get(asNounId("rock"))?.has(asPropertyId("slide"))).toBe(true);
+  });
 });

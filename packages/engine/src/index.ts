@@ -60,6 +60,7 @@ export type { PropertyHandler, PropertyContext } from "./properties";
 export {
   tryMove,
   moveAllYou,
+  applySlide,
   stepToward,
   applyTransforms,
   resolveOverlaps,
@@ -101,6 +102,8 @@ export {
   LEVEL_3,
   LEVEL_4,
   LEVEL_SPECIAL,
+  LEVEL_JUNGLE_1,
+  LEVEL_JUNGLE_2,
   CAMPAIGN_LEVELS,
   INITIAL_UNLOCKS,
   loadDocument,

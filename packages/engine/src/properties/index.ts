@@ -2,8 +2,8 @@
  * Property behavior plugins.
  *
  * Each property can declare hooks into the turn pipeline.
- * New mechanics (OPEN/SHUT, TELE, …) should land here as handlers
- * rather than hard-coding branches into movement.
+ * New mechanics should land here as handlers rather than hard-coding
+ * branches into movement.
  */
 
 import type { EntityRecord } from "../entity/store";
@@ -29,7 +29,7 @@ export interface PropertyHandler {
   ): boolean;
   /** After a mover successfully lands on / into this entity's cell. */
   onAfterEnter?(mover: EntityRecord, target: EntityRecord, ctx: PropertyContext): void;
-  /** End-of-turn / same-cell interactions (HOT/MELT, YOU+WIN on same tile, …). */
+  /** End-of-turn / same-cell interactions (YOU+WIN, …). */
   onResolve?(entity: EntityRecord, ctx: Omit<PropertyContext, "direction">): void;
 }
 
@@ -60,15 +60,15 @@ export function createDefaultProperties(): PropertyRegistry {
 
   reg.register({
     id: asPropertyId("push"),
-    // Movement system handles push recursively.
   });
 
   reg.register({
     id: asPropertyId("pull"),
-    // Movement: blocks entry unless also PUSH; applyPullChain follows movers.
   });
 
   reg.register({ id: asPropertyId("you") });
+  reg.register({ id: asPropertyId("slide") });
+  reg.register({ id: asPropertyId("win") });
 
   return reg;
 }

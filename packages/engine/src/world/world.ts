@@ -1,11 +1,17 @@
 import type { EntityId, NounId, PropertyId, WordId } from "../types";
-import { asNounId, asPropertyId, asWordId } from "../types";
+import { asNounId, asOperatorId, asPropertyId, asWordId } from "../types";
 import type { EntityRecord, EntityStore } from "../entity/store";
 import { EntityStore as EntityStoreClass } from "../entity/store";
 import { Grid } from "./grid";
 import type { Lexicon } from "../lexicon";
 import { createDefaultLexicon } from "../lexicon";
-import { parseRules, nounHasProperty, type RuleSet, type TextTile } from "../rules";
+import {
+  parseRules,
+  nounHasProperty,
+  type Feature,
+  type RuleSet,
+  type TextTile,
+} from "../rules";
 import type { GameStatus, Vec2 } from "../types";
 import type {
   AreaDef,
@@ -186,22 +192,83 @@ export class World {
     return e.kind === "text" ? asNounId("text") : e.noun;
   }
 
-  /** Property query: global rules ∪ rules of the entity's current area. */
+  /**
+   * Nouns an entity answers to in rule evaluation.
+   * Text tiles match both TEXT and WORD.
+   */
+  nounsForEntity(e: EntityRecord): NounId[] {
+    if (e.kind === "text") return [asNounId("text"), asNounId("word")];
+    return [e.noun];
+  }
+
+  private featuresForArea(areaId: number): Feature[] {
+    const local = this.rulesByArea.get(areaId);
+    if (!local) return [...this.globalRules.features];
+    return [...this.globalRules.features, ...local.features];
+  }
+
+  private conditionsMet(e: EntityRecord, feature: Feature): boolean {
+    for (const c of feature.conditions) {
+      if (c.kind === "on") {
+        const here = this.grid.entitiesAt(e.position, this.entities);
+        const found = here.some(
+          (o) =>
+            o.alive &&
+            o.id !== e.id &&
+            this.nounsForEntity(o).some((n) => n === c.noun),
+        );
+        if (c.negated ? found : !found) return false;
+      }
+    }
+    return true;
+  }
+
+  /** Property query: global ∪ area rules, with ON conditions + WORD alias. */
   hasProperty(e: EntityRecord, property: PropertyId | string): boolean {
     const prop = typeof property === "string" ? asPropertyId(property) : property;
-    const noun = this.effectiveNoun(e);
-    if (nounHasProperty(this.globalRules, noun, prop)) return true;
+    const nouns = this.nounsForEntity(e);
     const area = this.areaAt(e.position);
-    const local = this.rulesByArea.get(area);
-    if (local && nounHasProperty(local, noun, prop)) return true;
+
+    // Fast path: unconditional index.
+    for (const noun of nouns) {
+      if (nounHasProperty(this.globalRules, noun, prop)) return true;
+      const local = this.rulesByArea.get(area);
+      if (local && nounHasProperty(local, noun, prop)) return true;
+    }
+
+    // Conditional features (and any not indexed).
+    for (const f of this.featuresForArea(area)) {
+      if (f.subject.negated) continue;
+      if (f.verb !== asOperatorId("is")) continue;
+      if (f.target.kind !== "property" || f.target.negated) continue;
+      if (f.target.property !== prop) continue;
+      if (!nouns.includes(f.subject.noun)) continue;
+      if (!this.conditionsMet(e, f)) continue;
+      return true;
+    }
     return false;
   }
 
-  /** Transform target for a noun in a given area (global ∪ local). */
+  /** Transform target for a noun in a given area (global ∪ local, unconditional). */
   transformTarget(noun: NounId, areaId: number): NounId | undefined {
     const local = this.rulesByArea.get(areaId)?.transformsByNoun.get(noun);
     if (local) return local;
     return this.globalRules.transformsByNoun.get(noun);
+  }
+
+  /** Transform including conditional IS-noun features for this entity. */
+  transformTargetFor(e: EntityRecord): NounId | undefined {
+    const area = this.areaAt(e.position);
+    const unconditional = this.transformTarget(e.noun, area);
+    for (const f of this.featuresForArea(area)) {
+      if (f.subject.negated) continue;
+      if (f.verb !== asOperatorId("is")) continue;
+      if (f.target.kind !== "noun" || f.target.negated) continue;
+      if (f.subject.noun !== e.noun) continue;
+      if (!this.conditionsMet(e, f)) continue;
+      return f.target.noun;
+    }
+    return unconditional;
   }
 
   entitiesWithProperty(property: PropertyId | string): EntityRecord[] {

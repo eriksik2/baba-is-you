@@ -221,4 +221,82 @@ baba!,rock!,,,,
     }
     expect(session.world.status).toBe("won");
   });
+
+  test("SLIDE continues until blocked", () => {
+    const world = loadDocument({
+      id: "slide-test",
+      name: "slide",
+      width: 8,
+      height: 3,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "baba", verb: "is", object: "slide" },
+        { subject: "wall", verb: "is", object: "stop" },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 24 }, () => 0),
+      background: Array.from({ length: 24 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "wall", x: 0, y: 1 },
+        { kind: "object", id: "wall", x: 7, y: 1 },
+        { kind: "object", id: "baba", x: 1, y: 1 },
+      ],
+    });
+    const session = new GameSession(world);
+    session.dispatch({ type: "move", direction: "right" });
+    expect(session.world.entitiesWithProperty("you")[0]!.position).toEqual({ x: 6, y: 1 });
+  });
+
+  test("FRUIT ON DOOR IS WIN when stacked", () => {
+    const world = loadDocument({
+      id: "on-win",
+      name: "on",
+      width: 6,
+      height: 3,
+      globalRules: [{ subject: "baba", verb: "is", object: "you" }],
+      areas: [],
+      areaMap: Array.from({ length: 18 }, () => 0),
+      background: Array.from({ length: 18 }, () => "grass"),
+      entities: [
+        { kind: "text", id: "fruit", x: 0, y: 0 },
+        { kind: "text", id: "on", x: 1, y: 0 },
+        { kind: "text", id: "door", x: 2, y: 0 },
+        { kind: "text", id: "is", x: 3, y: 0 },
+        { kind: "text", id: "win", x: 4, y: 0 },
+        { kind: "object", id: "baba", x: 0, y: 2 },
+        { kind: "object", id: "fruit", x: 1, y: 2 },
+        { kind: "object", id: "door", x: 1, y: 2 },
+      ],
+    });
+    const session = new GameSession(world);
+    const fruit = session.world.entities.filter((e) => e.noun === asNounId("fruit"))[0]!;
+    expect(session.world.hasProperty(fruit, "win")).toBe(true);
+    session.dispatch({ type: "move", direction: "right" });
+    expect(session.world.status).toBe("won");
+  });
+
+  test("WORD refers to text tiles", () => {
+    const world = loadDocument({
+      id: "word-test",
+      name: "word",
+      width: 5,
+      height: 3,
+      globalRules: [
+        { subject: "baba", verb: "is", object: "you" },
+        { subject: "word", verb: "is", object: "win" },
+      ],
+      areas: [],
+      areaMap: Array.from({ length: 15 }, () => 0),
+      background: Array.from({ length: 15 }, () => "grass"),
+      entities: [
+        { kind: "object", id: "baba", x: 1, y: 1 },
+        { kind: "text", id: "rock", x: 1, y: 1 },
+      ],
+    });
+    const session = new GameSession(world);
+    const text = session.world.entities.filter((e) => e.kind === "text")[0]!;
+    expect(session.world.hasProperty(text, "win")).toBe(true);
+    session.dispatch({ type: "wait" });
+    expect(session.world.status).toBe("won");
+  });
 });
